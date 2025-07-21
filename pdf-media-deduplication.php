@@ -118,12 +118,56 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                     WP_CLI::log( "Duplicate found: {$post_title} (ID: {$post->ID})" );
                     if ( ! $this->dry_run ) {
                         // Logic to handle duplicates, e.g., delete or mark as duplicate
-                        // wp_delete_post( $post->ID, true );
+                        // wp_delete_post( $post->ID, true );  
                     }
-                } else {
-                    // Add the post title to the unique titles array
-                    $this->unique_post_titles[] = $post_title;
+                    continue;
+                } 
+
+                // Check if the post is a fuzzy duplicate
+                // These are post titles that may have a common slug
+                // but a unique post title because of -x suffixes which get added upon upload
+
+                // "-1" is a common suffix for duplicates, so we check for it
+                if ( str_contains( $post_title, '-1' ) ) {
+                    str_replace( '-1', '', $post_title );
+                    if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
+                         WP_CLI::log( "Duplicate found: {$post->post_title} (ID: {$post->ID})" );
+                         if ( ! $this->dry_run ) {
+                            // Logic to handle duplicates, e.g., delete or mark as duplicate
+                            // wp_delete_post( $post->ID, true );   
+                        }
+                        continue; // Skip further checks for this post
+                    }
                 }
+
+                // "-2" is a common suffix for duplicates, so we check for it
+                if ( str_contains( $post_title, '-2' ) ) {
+                    str_replace( '-2', '', $post_title );
+                    if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
+                         WP_CLI::log( "Duplicate found: {$post->post_title} (ID: {$post->ID})" );
+                         if ( ! $this->dry_run ) {
+                            // Logic to handle duplicates, e.g., delete or mark as duplicate
+                            // wp_delete_post( $post->ID, true );
+                        }
+                        continue;
+                    }
+                }
+
+                // "-pdf" is a common suffix for duplicates, so we check for it
+                if ( str_contains( $post_title, '-pdf' ) ) {
+                    str_replace( '-pdf', '', $post_title );
+                    if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
+                         WP_CLI::log( "Duplicate found: {$post->post_title} (ID: {$post->ID})" );
+                         if ( ! $this->dry_run ) {
+                            // Logic to handle duplicates, e.g., delete or mark as duplicate
+                            // wp_delete_post( $post->ID, true );
+                        }
+                        continue;
+                    }
+                }
+
+                // Add the unmodified post title to the unique titles array
+                $this->unique_post_titles[$post->ID] = $post->post_title;
             }
 
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
