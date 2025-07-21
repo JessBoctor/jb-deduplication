@@ -45,6 +45,11 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private $start_post_id = 1;
 
         /**
+         * The number of pdf posts returned by the last query.
+         */
+        private $pdf_posts_count = 0;
+
+        /**
          * Holds the last post ID returned in the batch.
          *
          * @var int|null
@@ -79,21 +84,23 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         /**
          * Deduplicate PDF media files in the WordPress media library.
          *
-         * ## OPTIONS
-         *
-         * [--dry-run]
-         * : Run the command in test mode without making changes.
-         *
-         * [--start-post-id=<id>]
-         * : Minimum post ID to start processing from.
-         *
-         * ## EXAMPLES
-         *
-         *     wp pdf-media deduplicate --dry-run --start-post-id=500
-         *
          * @when after_wp_load
          */
         public function deduplicate_pdfs() {
+            WP_CLI::log( 'Starting PDF media deduplication...' );
+
+            // Fetch PDF posts for this batch
+            $pdf_posts = $this->get_pdf_posts();
+            if ( empty( $pdf_posts ) ) {
+                WP_CLI::log( 'No PDF posts found to deduplicate.' );
+                return;
+            }
+            $this->pdf_posts_count = count( $pdf_posts );
+            WP_CLI::log( "Found {$this->pdf_posts_count} PDF posts to process." );
+            $this->save_last_post_id_to_options();
+            WP_CLI::log( "Last post ID in batch: {$this->last_post_id}" );
+
+            // Loop through the PDF posts and check for duplicates
 
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
             WP_CLI::success( 'PDF media deduplication completed.' );
