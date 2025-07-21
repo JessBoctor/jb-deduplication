@@ -46,6 +46,8 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
         /**
          * The number of pdf posts returned by the last query.
+         *
+         * @var int
          */
         private $pdf_posts_count = 0;
 
@@ -55,6 +57,13 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * @var int|null
          */
         private $last_post_id = null;
+
+        /**
+         * Holds unique post titles to check for duplicates.
+         *
+         * @var array
+         */
+        private $unique_post_titles = array();
 
         /**
          * Constructor.
@@ -101,6 +110,21 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             WP_CLI::log( "Last post ID in batch: {$this->last_post_id}" );
 
             // Loop through the PDF posts and check for duplicates
+            foreach ( $pdf_posts as $post ) {
+                $post_title = $post->post_title;
+
+                // Check if the post title is already in the unique titles array
+                if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
+                    WP_CLI::log( "Duplicate found: {$post_title} (ID: {$post->ID})" );
+                    if ( ! $this->dry_run ) {
+                        // Logic to handle duplicates, e.g., delete or mark as duplicate
+                        // wp_delete_post( $post->ID, true );
+                    }
+                } else {
+                    // Add the post title to the unique titles array
+                    $this->unique_post_titles[] = $post_title;
+                }
+            }
 
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
             WP_CLI::success( 'PDF media deduplication completed.' );
