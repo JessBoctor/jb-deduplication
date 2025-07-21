@@ -86,6 +86,15 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             }
             WP_CLI::log( "Batch size set to: {$this->batch_size}" );
 
+            // Fetch the past unique post titles from options
+            $saved_unique_post_titles = get_option( 'one-time-script-pdf-deduplication-unique-post-titles', array() );
+            if ( is_array( $saved_unique_post_titles ) ) {
+                $this->unique_post_titles = $saved_unique_post_titles;
+                WP_CLI::log( 'Loaded unique post titles from options.' );
+            } else {
+                WP_CLI::log( 'No unique post titles found in options.' );
+            }
+
             // Being the deduplication process
             $this->deduplicate_pdfs();
         }
@@ -159,6 +168,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 $this->unique_post_titles[$post->ID] = $post->post_title;
             }
 
+            // Save the unique post titles to options
+            $this->save_unique_post_titles_to_options();
+
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
             WP_CLI::success( 'PDF media deduplication completed.' );
         }
@@ -217,6 +229,15 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private function save_last_post_id_to_options() {
             if ( ! is_null( $this->last_post_id ) ) {
                 update_option( 'one-time-script-pdf-deduplication-start-post-id', $this->last_post_id );
+            }
+        }
+
+        /**
+         * Save the unique post titles array to the wp_options table.
+         */
+        private function save_unique_post_titles_to_options() {
+            if ( ! empty( $this->unique_post_titles ) ) {
+                update_option( 'one-time-script-pdf-deduplication-unique-post-titles', $this->unique_post_titles );
             }
         }
 
