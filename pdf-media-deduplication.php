@@ -62,7 +62,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private $total_duplicate_posts = 0;
 
         /**
-         * Constructor.
+         * Search for duplicate PDF media files.
          */
         public function __invoke( $args ) {
             // Determine if we are running in dry run mode
@@ -119,6 +119,10 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             foreach ( $pdf_posts as $post ) {
                 $post_title = $post->post_title;
                 $matching_post_title_id = null;
+
+                if ( $this->dry_run ) {
+                    WP_CLI::log( "Checking post ID {$post->ID} with title '{$post_title}' for duplicates." );
+                }
 
                 // Check if the post title is already in the unique titles array
                 $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
@@ -251,14 +255,14 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * @var int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function handle_duplicate_post( object $post, array $matching_post_title_id ): void {
+        private function handle_duplicate_post( object $post, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
             if ( $this->dry_run ) {
-                WP_CLI::log( "Dry run: Duplicate PDF found. Original post ID {$matching_post_title_id[0]} with title {$this->unique_post_titles[$matching_post_title_id[0]]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
+                WP_CLI::log( "Dry run: Duplicate PDF found. Original post ID {$matching_post_title_id} with title {$this->unique_post_titles[$matching_post_title_id]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
                 return;
             }
 
-            WP_CLI::log( "Duplicate PDF found. Original post ID {$matching_post_title_id[0]} with title {$this->unique_post_titles[$matching_post_title_id[0]]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
+            WP_CLI::log( "Duplicate PDF found. Original post ID {$matching_post_title_id} with title {$this->unique_post_titles[$matching_post_title_id]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
             WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
             wp_delete_attachment( $post->ID, true );
             WP_CLI::log( "Deleted duplicate post ID {$post->ID}." );
