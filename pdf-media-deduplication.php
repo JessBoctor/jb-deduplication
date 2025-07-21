@@ -52,6 +52,31 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private $last_post_id = null;
 
         /**
+         * Constructor.
+         */
+        public function __construct( $assoc_args ) {
+            // Determine if we are running in dry run mode
+            $this->dry_run = isset( $assoc_args['dry-run'] );
+            if ( $this->dry_run ) {
+                WP_CLI::log( 'Running in dry run mode. No changes will be made.' );
+            } else {
+                WP_CLI::log( 'Running in live mode. Changes will be applied.' );
+            }
+
+            // Determine the starting post ID from CLI args or saved option
+            $this->determine_start_post_id( $assoc_args );
+
+            // Set the batch size if provided
+            if ( isset( $assoc_args['batch-size'] ) && is_numeric( $assoc_args['batch-size'] ) ) {
+                $this->batch_size = intval( $assoc_args['batch-size'] );
+            }
+            WP_CLI::log( "Batch size set to: {$this->batch_size}" );
+
+            // Being the deduplication process
+            $this->deduplicate_pdfs();
+        }
+
+        /**
          * Deduplicate PDF media files in the WordPress media library.
          *
          * ## OPTIONS
@@ -68,16 +93,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          *
          * @when after_wp_load
          */
-        public function deduplicate( $args, $assoc_args ) {
-            $this->dry_run = isset( $assoc_args['dry-run'] );
-
-            if ( $this->dry_run ) {
-                WP_CLI::log( 'Running in dry run mode. No changes will be made.' );
-            } else {
-                WP_CLI::log( 'Running in live mode. Changes will be applied.' );
-            }
-
-            $this->determine_start_post_id( $assoc_args );
+        public function deduplicate_pdfs() {
 
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
             WP_CLI::success( 'PDF media deduplication completed.' );
@@ -141,5 +157,5 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         }
     }
 
-    WP_CLI::add_command( 'pdf-media', 'PDF_Media_Deduplication_Command' );
+    WP_CLI::add_command( 'pdf-media-dedup', 'PDF_Media_Deduplication_Command' );
 }
