@@ -66,6 +66,13 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private $unique_post_titles = array();
 
         /**
+         * Total number of PDF posts detected in the media library.
+         * 
+         * @var int
+         */
+        private $total_duplicate_posts = 0;
+
+        /**
          * Constructor.
          */
         public function __construct( $assoc_args ) {
@@ -171,8 +178,14 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             // Save the unique post titles to options
             $this->save_unique_post_titles_to_options();
 
+            // Log the number of duplicate posts found
+            WP_CLI::log( "Total duplicate posts found: {$this->total_duplicate_posts}" );
+
+            // Log the number of unique post titles found
+            WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
+
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
-            WP_CLI::success( 'PDF media deduplication completed.' );
+            WP_CLI::success( "PDF media deduplication completed for post ID #{$this->start_post_id} through #{$this->last_post_id}." );
         }
 
         /**
@@ -249,6 +262,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * @return void
          */
         private function handle_duplicate_post( object $post, array $matching_post_title_id ): void {
+            $this->total_duplicate_posts++;
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: Duplicate PDF found. Original post ID {$matching_post_title_id[0]} with title {$this->unique_post_titles[$matching_post_title_id[0]]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
                 return;
