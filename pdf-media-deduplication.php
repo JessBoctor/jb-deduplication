@@ -12,10 +12,6 @@
  *
  * Place this file in your WordPress environment and run the above commands from the terminal.
  */
-
-use WP_CLI;
-// File: pdf-media-deduplication.php
-
 if ( ! defined( 'WP_CLI' ) && WP_CLI ) {
     return;
 }
@@ -45,13 +41,6 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private $start_post_id = 1;
 
         /**
-         * The number of pdf posts returned by the last query.
-         *
-         * @var int
-         */
-        private $pdf_posts_count = 0;
-
-        /**
          * Holds the last post ID returned in the batch.
          *
          * @var int|null
@@ -67,7 +56,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
         /**
          * Total number of PDF posts detected in the media library.
-         * 
+         *
          * @var int
          */
         private $total_duplicate_posts = 0;
@@ -75,9 +64,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         /**
          * Constructor.
          */
-        public function __construct( $assoc_args ) {
+        public function __invoke( $args ) {
             // Determine if we are running in dry run mode
-            $this->dry_run = isset( $assoc_args['dry-run'] );
+            $this->dry_run = isset( $args['dry-run'] );
             if ( $this->dry_run ) {
                 WP_CLI::log( 'Running in dry run mode. No changes will be made.' );
             } else {
@@ -85,11 +74,11 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             }
 
             // Determine the starting post ID from CLI args or saved option
-            $this->determine_start_post_id( $assoc_args );
+            $this->determine_start_post_id( $args );
 
             // Set the batch size if provided
-            if ( isset( $assoc_args['batch-size'] ) && is_numeric( $assoc_args['batch-size'] ) ) {
-                $this->batch_size = intval( $assoc_args['batch-size'] );
+            if ( isset( $args['batch-size'] ) && is_numeric( $args['batch-size'] ) ) {
+                $this->batch_size = intval( $args['batch-size'] );
             }
             WP_CLI::log( "Batch size set to: {$this->batch_size}" );
 
@@ -97,9 +86,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             $saved_unique_post_titles = get_option( 'one-time-script-pdf-deduplication-unique-post-titles', array() );
             if ( is_array( $saved_unique_post_titles ) ) {
                 $this->unique_post_titles = $saved_unique_post_titles;
-                WP_CLI::log( 'Loaded unique post titles from options.' );
+                WP_CLI::log( 'Loaded unique post records from options.' );
             } else {
-                WP_CLI::log( 'No unique post titles found in options.' );
+                WP_CLI::log( 'No unique post records found in options.' );
             }
 
             // Being the deduplication process
@@ -120,18 +109,19 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 WP_CLI::log( 'No PDF posts found to deduplicate.' );
                 return;
             }
-            $this->pdf_posts_count = count( $pdf_posts );
-            WP_CLI::log( "Found {$this->pdf_posts_count} PDF posts to process." );
+            // Log the number of PDF posts found
+            $pdf_posts_count = count( $pdf_posts );
+            WP_CLI::log( "Found {$pdf_posts_count} PDF posts to process." );
             $this->save_last_post_id_to_options();
             WP_CLI::log( "Last post ID in batch: {$this->last_post_id}" );
 
             // Loop through the PDF posts and check for duplicates
             foreach ( $pdf_posts as $post ) {
                 $post_title = $post->post_title;
-                $matching_post_title_id = [];
+                $matching_post_title_id = null;
 
                 // Check if the post title is already in the unique titles array
-                $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                 if ( ! empty( $matching_post_title_id ) ) {
                     $this->handle_duplicate_post( $post, $matching_post_title_id );
                     continue;
@@ -144,7 +134,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 // "-1" is a common suffix for duplicates, so we check for it
                 if ( str_contains( $post_title, '-1' ) ) {
                     str_replace( '-1', '', $post_title );
-                    $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                    $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                     if ( ! empty( $matching_post_title_id ) ) {
                         $this->handle_duplicate_post( $post, $matching_post_title_id );
                         continue;
@@ -154,7 +144,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 // "-2" is a common suffix for duplicates, so we check for it
                 if ( str_contains( $post_title, '-2' ) ) {
                     str_replace( '-2', '', $post_title );
-                    $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                    $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                     if ( ! empty( $matching_post_title_id ) ) {
                         $this->handle_duplicate_post( $post, $matching_post_title_id );
                         continue;
@@ -164,7 +154,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 // "-pdf" is a common suffix for duplicates, so we check for it
                 if ( str_contains( $post_title, '-pdf' ) ) {
                     str_replace( '-pdf', '', $post_title );
-                    $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                    $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                     if ( ! empty( $matching_post_title_id ) ) {
                         $this->handle_duplicate_post( $post, $matching_post_title_id );
                         continue;
@@ -258,7 +248,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * Handle a duplicate post when it is found.
          *
          * @var object $post The post object that is a duplicate.
-         * @var array $matching_post_title_id The IDs of posts with the same title.
+         * @var int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
         private function handle_duplicate_post( object $post, array $matching_post_title_id ): void {
