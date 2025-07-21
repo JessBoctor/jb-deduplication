@@ -112,14 +112,12 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             // Loop through the PDF posts and check for duplicates
             foreach ( $pdf_posts as $post ) {
                 $post_title = $post->post_title;
+                $matching_post_title_id = [];
 
                 // Check if the post title is already in the unique titles array
-                if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
-                    WP_CLI::log( "Duplicate found: {$post_title} (ID: {$post->ID})" );
-                    if ( ! $this->dry_run ) {
-                        // Logic to handle duplicates, e.g., delete or mark as duplicate
-                        // wp_delete_post( $post->ID, true );  
-                    }
+                $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                if ( ! empty( $matching_post_title_id ) ) {
+                    $this->handle_duplicate_post( $post, $matching_post_title_id );
                     continue;
                 } 
 
@@ -130,25 +128,19 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 // "-1" is a common suffix for duplicates, so we check for it
                 if ( str_contains( $post_title, '-1' ) ) {
                     str_replace( '-1', '', $post_title );
-                    if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
-                         WP_CLI::log( "Duplicate found: {$post->post_title} (ID: {$post->ID})" );
-                         if ( ! $this->dry_run ) {
-                            // Logic to handle duplicates, e.g., delete or mark as duplicate
-                            // wp_delete_post( $post->ID, true );   
-                        }
-                        continue; // Skip further checks for this post
+                    $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                    if ( ! empty( $matching_post_title_id ) ) {
+                        $this->handle_duplicate_post( $post, $matching_post_title_id );
+                        continue;
                     }
                 }
 
                 // "-2" is a common suffix for duplicates, so we check for it
                 if ( str_contains( $post_title, '-2' ) ) {
                     str_replace( '-2', '', $post_title );
-                    if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
-                         WP_CLI::log( "Duplicate found: {$post->post_title} (ID: {$post->ID})" );
-                         if ( ! $this->dry_run ) {
-                            // Logic to handle duplicates, e.g., delete or mark as duplicate
-                            // wp_delete_post( $post->ID, true );
-                        }
+                    $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                    if ( ! empty( $matching_post_title_id ) ) {
+                        $this->handle_duplicate_post( $post, $matching_post_title_id );
                         continue;
                     }
                 }
@@ -156,12 +148,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 // "-pdf" is a common suffix for duplicates, so we check for it
                 if ( str_contains( $post_title, '-pdf' ) ) {
                     str_replace( '-pdf', '', $post_title );
-                    if ( in_array( $post_title, $this->unique_post_titles, true ) ) {
-                         WP_CLI::log( "Duplicate found: {$post->post_title} (ID: {$post->ID})" );
-                         if ( ! $this->dry_run ) {
-                            // Logic to handle duplicates, e.g., delete or mark as duplicate
-                            // wp_delete_post( $post->ID, true );
-                        }
+                    $matching_post_title_id = array_keys( $this->unique_post_titles, $post_title, true );
+                    if ( ! empty( $matching_post_title_id ) ) {
+                        $this->handle_duplicate_post( $post, $matching_post_title_id );
                         continue;
                     }
                 }
@@ -229,6 +218,26 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             if ( ! is_null( $this->last_post_id ) ) {
                 update_option( 'one-time-script-pdf-deduplication-start-post-id', $this->last_post_id );
             }
+        }
+
+        /**
+         * Handle a duplicate post when it is found.
+         *
+         * @var object $post The post object that is a duplicate.
+         * @var array $matching_post_title_id The IDs of posts with the same title.
+         * @return void
+         */
+        private function handle_duplicate_post( object $post, array $matching_post_title_id ): void {
+            if ( $this->dry_run ) {
+                WP_CLI::log( "Dry run: Duplicate PDF found. Original post ID {$matching_post_title_id[0]} with title {$this->unique_post_titles[$matching_post_title_id[0]]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
+                return;
+            }
+
+            WP_CLI::log( "Duplicate PDF found. Original post ID {$matching_post_title_id[0]} with title {$this->unique_post_titles[$matching_post_title_id[0]]}. Duplicate post ID {$post->ID} has title '{$post->post_title}'." );
+            WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
+            wp_delete_attachment( $post->ID, true );
+            WP_CLI::log( "Deleted duplicate post ID {$post->ID}." );
+            return;
         }
     }
 
