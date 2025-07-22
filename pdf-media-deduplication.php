@@ -71,8 +71,13 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
         /**
          * Search for duplicate PDF media files.
+         *
+         * @param array $args Positional arguments (not used).
+         * @param array $assoc_args Associative arguments (e.g., --dry-run, --start-post-id, --batch-size).
+         * @return void
+         * @when after_wp_load
          */
-        public function __invoke( $args, $assoc_args ) {
+        public function __invoke( $args, $assoc_args ): void {
             // Determine if we are running in dry run mode
             $this->dry_run = isset( $assoc_args['dry-run'] );
             if ( $this->dry_run ) {
@@ -106,9 +111,11 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         /**
          * Deduplicate PDF media files in the WordPress media library.
          *
+         * @param none
+         * @return void
          * @when after_wp_load
          */
-        public function deduplicate_pdfs() {
+        public function deduplicate_pdfs(): void {
             WP_CLI::log( 'Starting PDF media deduplication...' );
 
             // Fetch PDF posts for this batch
@@ -213,7 +220,13 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             WP_CLI::log( 'No saved start post ID found or provided. Starting from post ID 1.' );
         }
 
-        private function get_pdf_posts() {
+        /**
+         * Fetch PDF posts from the database.
+         *
+         * @param none
+         * @return array Array of post objects representing PDF attachments.
+         */
+        private function get_pdf_posts(): array {
             global $wpdb;
 
             $results = $wpdb->get_results(
@@ -244,8 +257,12 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
         /**
          * Save the last processed post ID to the wp_options table.
+         * This allows the script to resume from the last processed post ID
+         *
+         * @param none
+         * @return void
          */
-        private function save_last_post_id_to_options() {
+        private function save_last_post_id_to_options(): void {
             if ( ! is_null( $this->last_post_id ) ) {
                 update_option( 'one-time-script-pdf-deduplication-start-post-id', $this->last_post_id );
             }
@@ -253,8 +270,12 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
         /**
          * Save the unique post titles array to the wp_options table.
+         * This allows the script to check previously processed titles for duplicates
+         *
+         * @param none
+         * @return void
          */
-        private function save_unique_post_titles_to_options() {
+        private function save_unique_post_titles_to_options(): void {
             if ( ! empty( $this->unique_post_titles ) ) {
                 update_option( 'one-time-script-pdf-deduplication-unique-post-titles', $this->unique_post_titles );
             }
@@ -263,8 +284,8 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         /**
          * Handle a duplicate post when it is found.
          *
-         * @var object $post The post object that is a duplicate.
-         * @var int|string $matching_post_title_id The IDs of posts with the same title.
+         * @param object $post The post object that is a duplicate.
+         * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
         private function handle_duplicate_post( object $post, int|string $matching_post_title_id ): void {
@@ -297,8 +318,13 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
         /**
          * Gather the duplicate posts data for logging later
+         * This will be used to log the deleted posts in a CSV file at the end of the batch
+         *
+         * @param object $post The post object that is a duplicate.
+         * @param int|string $matching_post_title_id The IDs of posts with the same title.
+         * @return void
          */
-        private function gather_duplicate_posts_data( $post, $matching_post_title_id ) {
+        private function gather_duplicate_posts_data( $post, $matching_post_title_id ): void {
             $this->duplicate_posts_to_log[] = array(
                 'original_post_id' => $matching_post_title_id,
                 'original_post_title' => $this->unique_post_titles[$matching_post_title_id],
