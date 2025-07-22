@@ -17,7 +17,7 @@ if ( ! defined( 'WP_CLI' ) && WP_CLI ) {
 }
 
 if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
-    class PDF_Media_Deduplication_Command {
+    class PDF_Media_Deduplication_Command extends WP_CLI_Command {
 
         /**
          * Number of posts to process per batch.
