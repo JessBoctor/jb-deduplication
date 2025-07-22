@@ -64,9 +64,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         /**
          * Search for duplicate PDF media files.
          */
-        public function __invoke( $args ) {
+        public function __invoke( $args, $assoc_args ) {
             // Determine if we are running in dry run mode
-            $this->dry_run = isset( $args['dry-run'] );
+            $this->dry_run = isset( $assoc_args['dry-run'] );
             if ( $this->dry_run ) {
                 WP_CLI::log( 'Running in dry run mode. No changes will be made.' );
             } else {
@@ -74,11 +74,11 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             }
 
             // Determine the starting post ID from CLI args or saved option
-            $this->determine_start_post_id( $args );
+            $this->determine_start_post_id( $assoc_args );
 
             // Set the batch size if provided
-            if ( isset( $args['batch-size'] ) && is_numeric( $args['batch-size'] ) ) {
-                $this->batch_size = intval( $args['batch-size'] );
+            if ( isset( $assoc_args['batch-size'] ) && is_numeric( $assoc_args['batch-size'] ) ) {
+                $this->batch_size = intval( $assoc_args['batch-size'] );
             }
             WP_CLI::log( "Batch size set to: {$this->batch_size}" );
 
