@@ -55,6 +55,14 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private $unique_post_titles = array();
 
         /**
+         * Holds the posts which have been deleted.
+         * This will allow us to log the deleted posts in a CSV file at the end of the batch
+         *
+         * @var array
+         */
+        private $duplicate_posts_to_log = array();
+
+        /**
          * Total number of PDF posts detected in the media library.
          *
          * @var int
@@ -262,24 +270,43 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private function handle_duplicate_post( object $post, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
             $original_pdf_url = get_attached_file( $matching_post_title_id );
+            $duplicate_post_message =
+                "
+                    Duplicate PDF found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
+                    ({$original_pdf_url}).
+                    Duplicate post ID {$post->ID} has title '{$post->post_title}' ({$post->guid}).
+                ";
+
             if ( $this->dry_run ) {
-                WP_CLI::log( "Dry run: Duplicate PDF found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
-                    (file can be viewed at {$original_pdf_url}).
-                    Duplicate post ID {$post->ID} has title '{$post->post_title}' (file can be viewed at {$post->guid})." );
+                WP_CLI::log( "Dry run: " . $duplicate_post_message );
+                WP_CLI::confirm( 'Log the duplicate post and PDF file to CSV?', 'yes' );
+                $this->gather_duplicate_posts_data( $post, $matching_post_title_id );
                 return;
             }
 
             if ( ! $this->dry_run ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
-                WP_CLI::log(
-                    "Duplicate PDF found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
-                    (file can be viewed at {$original_pdf_url}).
-                    Duplicate post ID {$post->ID} has title '{$post->post_title}' (file can be viewed at {$post->guid})." );
+                WP_CLI::log( $duplicate_post_message);
                 WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
+                $this->gather_duplicate_posts_data( $post, $matching_post_title_id );
                 wp_delete_attachment( $post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$post->ID}." );
                 return;
             }
+        }
+
+        /**
+         * Gather the duplicate posts data for logging later
+         */
+        private function gather_duplicate_posts_data( $post, $matching_post_title_id ) {
+            $this->duplicate_posts_to_log[] = array(
+                'original_post_id' => $matching_post_title_id,
+                'original_post_title' => $this->unique_post_titles[$matching_post_title_id],
+                'original_pdf_url' => get_attached_file( $matching_post_title_id ),
+                'duplicate_post_id' => $post->ID,
+                'duplicate_post_title' => $post->post_title,
+                'duoplicate_pdf_url' => $post->guid,
+            );
         }
     }
 
