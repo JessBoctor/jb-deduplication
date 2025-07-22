@@ -16,8 +16,10 @@ if ( ! defined( 'WP_CLI' ) && WP_CLI ) {
     return;
 }
 
+use WP_CLI\Utils;
+
 if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
-    class PDF_Media_Deduplication_Command extends WP_CLI_Command {
+    class PDF_Media_Deduplication_Command {
 
         /**
          * Number of posts to process per batch.
@@ -187,43 +189,8 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             // Save the unique post titles to options
             $this->save_unique_post_titles_to_options();
 
-            // Log the number of duplicate posts found
-            WP_CLI::log( "Total duplicate posts found: {$this->total_duplicate_posts}" );
-
-            // Log the number of duplicate posts recorded or deleted
-            if ( $this->dry_run && ! empty( $this->duplicate_posts_to_log ) ) {
-                WP_CLI::log( 'Total duplicate posts logged: ' . count( $this->duplicate_posts_to_log ) );
-            } else if ( ! empty( $this->duplicate_posts_to_log ) ) {
-                WP_CLI::log( 'Total duplicate posts deleted: ' . count( $this->duplicate_posts_to_log )  );
-            }
-
-            // Write the duplicate posts to a CSV file
-            if (  ! empty( $this->duplicate_posts_to_log ) ) {
-                $csv_file_path = WP_CLI::get_runner()->get_log_file_path( 'pdf_media_deduplication_log_' . date( 'Y-m-d_H-i-s' ) . '.csv' );
-                if ( class_exists( 'WP_CLI\Utils' ) ) {
-                    // Use WP_CLI\Utils\write_csv to write the duplicate posts to a CSV file
-                    WP_CLI\Utils\write_csv(
-                        $this->duplicate_posts_to_log,
-                        $csv_file_path,
-                        array(
-                            'headers' => array(
-                                'Original Post ID',
-                                'Original Post Title',
-                                'Original PDF URL',
-                                'Duplicate Post ID',
-                                'Duplicate Post Title',
-                                'Duplicate PDF URL',
-                            ),
-                        )
-                    );
-                    WP_CLI::log( "Duplicate posts written to CSV file: {$csv_file_path}" );
-                } else {
-                    WP_CLI::error( 'WP_CLI\Utils class not found. Cannot write CSV file.' );
-                }
-            }
-
-            // Log the number of unique post titles found
-            WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
+            // Handle logging the results
+            $this->log_results();
 
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
             WP_CLI::success( "PDF media deduplication completed for post ID #{$this->start_post_id} through #{$this->last_post_id}." );
@@ -365,6 +332,51 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 'duplicate_post_title' => $post->post_title,
                 'duoplicate_pdf_url' => $post->guid,
             );
+        }
+
+        /**
+         * Handle logging the results of the deduplication process.
+         * @return void
+         */
+        private function log_results(): void {
+            // Log the number of duplicate posts found
+            WP_CLI::log( "Total duplicate posts found: {$this->total_duplicate_posts}" );
+
+            // Log the number of duplicate posts recorded or deleted
+            if ( $this->dry_run ) {
+                WP_CLI::log( 'Total duplicate posts logged: ' . count( $this->duplicate_posts_to_log ) );
+            } else {
+                WP_CLI::log( 'Total duplicate posts deleted: ' . count( $this->duplicate_posts_to_log )  );
+            }
+
+            // Write the duplicate posts to a CSV file
+            if (  ! empty( $this->duplicate_posts_to_log ) ) {
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+                if ( ! $csv_file_path ) {
+                    WP_CLI::error( 'Failed to create CSV file for duplicate posts.' );
+                    return;
+                }
+
+                // Write the header and data to the CSV file
+                WP_CLI\Utils\write_csv(
+                    $csv_file_path,
+                    $this->duplicate_posts_to_log,
+                    array(
+                        'original_post_id',
+                        'original_post_title',
+                        'original_pdf_url',
+                        'duplicate_post_id',
+                        'duplicate_post_title',
+                        'duplicate_pdf_url',
+                    ),
+                );
+
+                WP_CLI::log( "Duplicate posts written to CSV file: {$csv_file_path}" );
+                fclose( $csv_file_path );
+            }
+
+            // Log the number of unique post titles found
+            WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
         }
     }
 
