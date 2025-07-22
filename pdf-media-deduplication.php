@@ -2,21 +2,22 @@
 /**
  * PDF Media Deduplication WP-CLI Command
  *
+ * Requires WP-CLI to be installed and activated.
+ *
  * Usage:
  *   wp pdf-media deduplicate [--dry-run] [--start-post-id=<id>]
  *
  * Examples:
- *   wp pdf-media deduplicate --dry-run
- *   wp pdf-media deduplicate --start-post-id=500
- *   wp pdf-media deduplicate --dry-run --start-post-id=1000
+ *   wp pdf-media-dedup --dry-run
+ *   wp pdf-media-dedup --start-post-id=500
+ *   wp pdf-media-dedup --dry-run --start-post-id=1000
+ *   wp pdf-media-dedup --dry-run --start-post-id=1000 --batch-size=50
  *
- * Place this file in your WordPress environment and run the above commands from the terminal.
+ * Run the above commands from the terminal.
  */
-if ( ! defined( 'WP_CLI' ) && WP_CLI ) {
+if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
     return;
 }
-
-use WP_CLI\Utils;
 
 if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
     class PDF_Media_Deduplication_Command {
@@ -379,21 +380,35 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
         }
     }
-
     WP_CLI::add_command( 'pdf-media-dedup', 'PDF_Media_Deduplication_Command' );
-}
 
-if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
-    function clear_pdf_media_deduplication_options() {
+    /**
+     * Clear out fields stored in wp_options related to PDF media deduplication.
+     * This is useful for resetting the deduplication process.
+     *
+     * Usage:
+     *  wp pdf-media-dedup-clear-options
+     *
+     * @param none
+     * @return void
+     */
+    function clear_pdf_media_deduplication_options(): void {
         delete_option( 'one-time-script-pdf-deduplication-start-post-id' );
         delete_option( 'one-time-script-pdf-deduplication-unique-post-titles' );
         WP_CLI::log( 'Cleared PDF media deduplication options.' );
     }
     WP_CLI::add_command( 'pdf-media-dedup-clear-options', 'clear_pdf_media_deduplication_options' );
-}
 
-if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
-    function delete_pdf_media_deduplication_log_files() {
+    /**
+     * Clear out CSV Log files stored in jb-deduplication/logs related to PDF media deduplication.
+     *
+     * Usage:
+     *  wp pdf-media-dedup-delete_logs
+     *
+     * @param none
+     * @return void
+     */
+    function delete_pdf_media_deduplication_log_files(): void {
         WP_CLI::confirm( 'Are you sure you want to delete all PDF media deduplication log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
         $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-*.csv' );
         if ( ! empty( $log_files ) ) {
