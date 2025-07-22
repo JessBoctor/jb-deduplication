@@ -391,3 +391,18 @@ if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
     }
     WP_CLI::add_command( 'pdf-media-dedup-clear-options', 'clear_pdf_media_deduplication_options' );
 }
+
+if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
+    function delete_pdf_media_deduplication_log_files() {
+        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-*.csv' );
+        if ( ! empty( $log_files ) ) {
+            foreach ( $log_files as $file ) {
+                @unlink( $file );
+            }
+            WP_CLI::log( 'Deleted all PDF media deduplication log CSV files.' );
+        } else {
+            WP_CLI::log( 'No log CSV files found to delete.' );
+        }
+    }
+    WP_CLI::add_command( 'pdf-media-dedup-delete_logs', 'delete_pdf_media_deduplication_log_files' );
+}
