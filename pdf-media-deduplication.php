@@ -325,12 +325,12 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          */
         private function gather_duplicate_posts_data( $post, $matching_post_title_id ): void {
             $this->duplicate_posts_to_log[] = array(
-                'original_post_id' => $matching_post_title_id,
-                'original_post_title' => $this->unique_post_titles[$matching_post_title_id],
-                'original_pdf_url' => get_attached_file( $matching_post_title_id ),
-                'duplicate_post_id' => $post->ID,
+                'original_post_id'     => $matching_post_title_id,
+                'original_post_title'  => $this->unique_post_titles[$matching_post_title_id],
+                'original_pdf_url'     => get_attached_file( $matching_post_title_id ),
+                'duplicate_post_id'    => $post->ID,
                 'duplicate_post_title' => $post->post_title,
-                'duoplicate_pdf_url' => $post->guid,
+                'duplicate_pdf_url'   => $post->guid,
             );
         }
 
