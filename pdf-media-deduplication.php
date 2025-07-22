@@ -190,6 +190,38 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             // Log the number of duplicate posts found
             WP_CLI::log( "Total duplicate posts found: {$this->total_duplicate_posts}" );
 
+            // Log the number of duplicate posts recorded or deleted
+            if ( $this->dry_run && ! empty( $this->duplicate_posts_to_log ) ) {
+                WP_CLI::log( 'Total duplicate posts logged: ' . count( $this->duplicate_posts_to_log ) );
+            } else if ( ! empty( $this->duplicate_posts_to_log ) ) {
+                WP_CLI::log( 'Total duplicate posts deleted: ' . count( $this->duplicate_posts_to_log )  );
+            }
+
+            // Write the duplicate posts to a CSV file
+            if (  ! empty( $this->duplicate_posts_to_log ) ) {
+                $csv_file_path = WP_CLI::get_runner()->get_log_file_path( 'pdf_media_deduplication_log_' . date( 'Y-m-d_H-i-s' ) . '.csv' );
+                if ( class_exists( 'WP_CLI\Utils' ) ) {
+                    // Use WP_CLI\Utils\write_csv to write the duplicate posts to a CSV file
+                    WP_CLI\Utils\write_csv(
+                        $this->duplicate_posts_to_log,
+                        $csv_file_path,
+                        array(
+                            'headers' => array(
+                                'Original Post ID',
+                                'Original Post Title',
+                                'Original PDF URL',
+                                'Duplicate Post ID',
+                                'Duplicate Post Title',
+                                'Duplicate PDF URL',
+                            ),
+                        )
+                    );
+                    WP_CLI::log( "Duplicate posts written to CSV file: {$csv_file_path}" );
+                } else {
+                    WP_CLI::error( 'WP_CLI\Utils class not found. Cannot write CSV file.' );
+                }
+            }
+
             // Log the number of unique post titles found
             WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
 
