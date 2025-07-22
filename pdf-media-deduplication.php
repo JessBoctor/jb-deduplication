@@ -190,7 +190,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         private function determine_start_post_id( $assoc_args ) {
             if ( isset( $assoc_args['start-post-id'] ) ) {
                 $this->start_post_id = intval( $assoc_args['start-post-id'] );
-                WP_CLI::log( "Resuming from saved post ID: {$this->start_post_id}" );
+                WP_CLI::log( "Starting from provided post ID: {$this->start_post_id}" );
                 return; // If a start post ID is provided, it should always take precedence.
             }
 
@@ -198,7 +198,11 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             if ( $saved_start_post_id ) {
                 $this->start_post_id = intval( $saved_start_post_id );
                 WP_CLI::log( "Resuming from saved post ID: {$this->start_post_id}" );
+                return; // If a saved start post ID exists, use it.
             }
+
+            // If no start post ID is provided or saved, use default of 1
+            WP_CLI::log( 'No saved start post ID found or provided. Starting from post ID 1.' );
         }
 
         private function get_pdf_posts() {
