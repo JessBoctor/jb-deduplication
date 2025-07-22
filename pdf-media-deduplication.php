@@ -394,6 +394,7 @@ if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
 if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
     function delete_pdf_media_deduplication_log_files() {
+        WP_CLI::confirm( 'Are you sure you want to delete all PDF media deduplication log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
         $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-*.csv' );
         if ( ! empty( $log_files ) ) {
             foreach ( $log_files as $file ) {
