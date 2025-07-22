@@ -370,3 +370,12 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
     WP_CLI::add_command( 'pdf-media-dedup', 'PDF_Media_Deduplication_Command' );
 }
+
+if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
+    function clear_pdf_media_deduplication_options() {
+        delete_option( 'one-time-script-pdf-deduplication-start-post-id' );
+        delete_option( 'one-time-script-pdf-deduplication-unique-post-titles' );
+        WP_CLI::log( 'Cleared PDF media deduplication options.' );
+    }
+    WP_CLI::add_command( 'pdf-media-dedup-clear-options', 'clear_pdf_media_deduplication_options' );
+}
