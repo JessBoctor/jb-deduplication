@@ -213,7 +213,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             $this->save_unique_post_titles_to_options();
 
             // Handle logging the results
-            $this->log_results();
+            $this->log_duplicate_post_results();
+            $this->log_missing_pdf_results();
+
+            // Log the number of unique post titles found
+            WP_CLI::log( 'Unique DLP Document posts found: ' . count( $this->unique_post_titles ) );
 
             // Your deduplication logic here, using $this->dry_run and $this->start_post_id to control actions.
             WP_CLI::success( "DLP Document deduplication completed for post ID #{$this->start_post_id} through #{$this->last_post_id}." );
