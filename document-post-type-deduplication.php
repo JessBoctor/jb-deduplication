@@ -66,7 +66,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         private $duplicate_posts_to_log = array();
 
         /**
-         * Total number of PDF posts detected in the media library.
+         * Total number of DLP Document posts detected in the media library.
          *
          * @var int
          */
@@ -99,7 +99,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             WP_CLI::log( "Batch size set to: {$this->batch_size}" );
 
             // Fetch the past unique post titles from options
-            $saved_unique_post_titles = get_option( 'one-time-script-pdf-deduplication-unique-post-titles', array() );
+            $saved_unique_post_titles = get_option( 'one-time-script-dlp-deduplication-unique-post-titles', array() );
             if ( is_array( $saved_unique_post_titles ) ) {
                 $this->unique_post_titles = $saved_unique_post_titles;
                 WP_CLI::log( 'Loaded unique post records from options.' );
@@ -108,7 +108,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             }
 
             // Being the deduplication process
-            $this->deduplicate_pdfs();
+            $this->deduplicate_dlp_docs();
         }
 
         /**
@@ -118,23 +118,23 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @return void
          * @when after_wp_load
          */
-        public function deduplicate_pdfs(): void {
+        public function deduplicate_dlp_docs(): void {
             WP_CLI::log( 'Starting DLP Document deduplication...' );
 
-            // Fetch PDF posts for this batch
-            $pdf_posts = $this->get_pdf_posts();
-            if ( empty( $pdf_posts ) ) {
-                WP_CLI::log( 'No PDF posts found to deduplicate.' );
+            // Fetch DLP Document posts for this batch
+            $dlp_doc_posts = $this->get_dlp_doc_posts();
+            if ( empty( $dlp_doc_posts ) ) {
+                WP_CLI::log( 'No DLP Document posts found to deduplicate.' );
                 return;
             }
-            // Log the number of PDF posts found
-            $pdf_posts_count = count( $pdf_posts );
-            WP_CLI::log( "Found {$pdf_posts_count} PDF posts to process." );
+            // Log the number of DLP Document posts found
+            $dlp_doc_posts_count = count( $dlp_doc_posts );
+            WP_CLI::log( "Found {$dlp_doc_posts_count} DLP Document posts to process." );
             $this->save_last_post_id_to_options();
             WP_CLI::log( "Last post ID in batch: {$this->last_post_id}" );
 
-            // Loop through the PDF posts and check for duplicates
-            foreach ( $pdf_posts as $post ) {
+            // Loop through the dlp_doc posts and check for duplicates
+            foreach ( $dlp_doc_posts as $post ) {
                 $post_title = $post->post_title;
                 $matching_post_title_id = null;
 
@@ -209,7 +209,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 return; // If a start post ID is provided, it should always take precedence.
             }
 
-            $saved_start_post_id = get_option( 'one-time-script-pdf-deduplication-start-post-id' );
+            $saved_start_post_id = get_option( 'one-time-script-dlp-deduplication-start-post-id' );
             if ( $saved_start_post_id ) {
                 $this->start_post_id = intval( $saved_start_post_id );
                 WP_CLI::log( "Resuming from saved post ID: {$this->start_post_id}" );
@@ -221,12 +221,12 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         }
 
         /**
-         * Fetch PDF posts from the database.
+         * Fetch DLP Document posts from the database.
          *
          * @param none
-         * @return array Array of post objects representing PDF attachments.
+         * @return array Array of post objects representing DLP Documents.
          */
-        private function get_pdf_posts(): array {
+        private function get_dlp_doc_posts(): array {
             global $wpdb;
 
             $results = $wpdb->get_results(
@@ -234,13 +234,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     "
                     SELECT * FROM {$wpdb->posts}
                     WHERE post_type = %s
-                      AND post_mime_type = %s
                       AND ID > %d
                     ORDER BY ID ASC
                     LIMIT %d
                     ",
-                    'attachment',
-                    'application/pdf',
+                    'dlp_document',
                     $this->start_post_id,
                     $this->batch_size
                 )
@@ -264,7 +262,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          */
         private function save_last_post_id_to_options(): void {
             if ( ! is_null( $this->last_post_id ) ) {
-                update_option( 'one-time-script-pdf-deduplication-start-post-id', $this->last_post_id );
+                update_option( 'one-time-script-dlp-deduplication-start-post-id', $this->last_post_id );
             }
         }
 
@@ -277,7 +275,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          */
         private function save_unique_post_titles_to_options(): void {
             if ( ! empty( $this->unique_post_titles ) ) {
-                update_option( 'one-time-script-pdf-deduplication-unique-post-titles', $this->unique_post_titles );
+                update_option( 'one-time-script-dlp-deduplication-unique-post-titles', $this->unique_post_titles );
             }
         }
 
@@ -290,17 +288,17 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          */
         private function handle_duplicate_post( object $duplicate_post, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
-            $original_pdf_url = get_attached_file( $matching_post_title_id );
+            $original_dlp_doc_url = get_attached_file( $matching_post_title_id );
             $duplicate_post_message =
                 "
-                    Duplicate PDF found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
-                    ({$original_pdf_url}).
+                    Duplicate DLP Document found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
+                    ({$original_dlp_doc_url}).
                     Duplicate post ID {$duplicate_post->ID} has title '{$duplicate_post->post_title}' ({$duplicate_post->guid}).
                 ";
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $duplicate_post_message );
-                WP_CLI::confirm( 'Log the duplicate post and PDF file to CSV?', 'yes' );
+                WP_CLI::confirm( 'Log the duplicate post and DLP Document file to CSV?', 'yes' );
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 return;
             }
@@ -328,11 +326,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             $this->duplicate_posts_to_log[] = array(
                 'original_post_id'       => $matching_post_title_id,
                 'original_post_title'    => $this->unique_post_titles[$matching_post_title_id],
-                'original_pdf_url'       => get_attached_file( $matching_post_title_id ),
+                'original_dlp_doc_url'       => get_attached_file( $matching_post_title_id ),
                 'duplicate_post_id'      => $duplicate_post->ID,
                 'duplicate_post_title'   => $duplicate_post->post_title,
-                'duplicate_pdf_url'      => $duplicate_post->guid,
-                'duplicate_pdf_filesize' => filesize( get_attached_file( $duplicate_post->ID ) ),
+                'duplicate_dlp_doc_url'      => $duplicate_post->guid,
+                'duplicate_dlp_doc_filesize' => filesize( get_attached_file( $duplicate_post->ID ) ),
             );
         }
 
@@ -366,11 +364,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     array(
                         'original_post_id',
                         'original_post_title',
-                        'original_pdf_url',
+                        'original_dlp_doc_url',
                         'duplicate_post_id',
                         'duplicate_post_title',
-                        'duplicate_pdf_url',
-                        'duplicate_pdf_filesize',
+                        'duplicate_dlp_doc_url',
+                        'duplicate_dlp_doc_filesize',
                     ),
                 );
 
@@ -379,7 +377,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             }
 
             // Log the number of unique post titles found
-            WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
+            WP_CLI::log( 'Unique DLP Document posts found: ' . count( $this->unique_post_titles ) );
         }
     }
     WP_CLI::add_command( 'dlp-document-dedup', 'DLP_Document_Deduplication_Command' );
@@ -398,8 +396,8 @@ if ( class_exists( 'DLP_Document_Deduplication_Command' ) ) {
      * @return void
      */
     function clear_dlp_document_deduplication_options(): void {
-        delete_option( 'one-time-script-pdf-deduplication-start-post-id' );
-        delete_option( 'one-time-script-pdf-deduplication-unique-post-titles' );
+        delete_option( 'one-time-script-dlp-deduplication-start-post-id' );
+        delete_option( 'one-time-script-dlp-deduplication-unique-post-titles' );
         WP_CLI::log( 'Cleared DLP Document deduplication options.' );
     }
     WP_CLI::add_command( 'dlp-document-dedup-clear-options', 'clear_dlp_document_deduplication_options' );
