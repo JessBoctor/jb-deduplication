@@ -288,17 +288,18 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          */
         private function handle_duplicate_post( object $duplicate_post, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
-            $original_dlp_doc_url = get_attached_file( $matching_post_title_id );
+            $original_attached_pdf_url = get_post_meta( $matching_post_title_id, '_dlp_direct_link_url', true );
+            $duplicate_attached_pdf_url = get_post_meta( $duplicate_post->ID, '_dlp_direct_link_url', true );
             $duplicate_post_message =
                 "
                     Duplicate DLP Document found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
-                    ({$original_dlp_doc_url}).
-                    Duplicate post ID {$duplicate_post->ID} has title '{$duplicate_post->post_title}' ({$duplicate_post->guid}).
+                    ({$original_attached_pdf_url}).
+                    Duplicate post ID {$duplicate_post->ID} has title '{$duplicate_post->post_title}' ({$duplicate_attached_pdf_url}).
                 ";
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $duplicate_post_message );
-                WP_CLI::confirm( 'Log the duplicate post and DLP Document file to CSV?', 'yes' );
+                WP_CLI::confirm( 'Log the duplicate DLP Document post to CSV?', 'yes' );
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 return;
             }
@@ -306,13 +307,15 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             if ( ! $this->dry_run ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $duplicate_post_message);
-                WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
+                WP_CLI::confirm( 'Do you want to delete the duplicate DLP Document post?', 'yes' );
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
-                wp_delete_attachment( $duplicate_post->ID, true );
+                wp_delete_post( $duplicate_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
                 return;
             }
         }
+
+        
 
         /**
          * Gather the duplicate posts data for logging later
