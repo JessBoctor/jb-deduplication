@@ -353,7 +353,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
             // Write the duplicate posts to a CSV file
             if (  ! empty( $this->duplicate_posts_to_log ) ) {
-                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/pdf-media-duplicate-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
                 if ( ! $csv_file_path ) {
                     WP_CLI::error( 'Failed to create CSV file for duplicate posts.' );
                     return;
