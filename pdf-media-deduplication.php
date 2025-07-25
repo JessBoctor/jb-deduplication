@@ -288,20 +288,20 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function handle_duplicate_post( object $post, int|string $matching_post_title_id ): void {
+        private function handle_duplicate_post( object $duplicate_post, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
             $original_pdf_url = get_attached_file( $matching_post_title_id );
             $duplicate_post_message =
                 "
                     Duplicate PDF found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
                     ({$original_pdf_url}).
-                    Duplicate post ID {$post->ID} has title '{$post->post_title}' ({$post->guid}).
+                    Duplicate post ID {$duplicate_post->ID} has title '{$duplicate_post->post_title}' ({$duplicate_post->guid}).
                 ";
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $duplicate_post_message );
                 WP_CLI::confirm( 'Log the duplicate post and PDF file to CSV?', 'yes' );
-                $this->gather_duplicate_posts_data( $post, $matching_post_title_id );
+                $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 return;
             }
 
@@ -309,9 +309,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $duplicate_post_message);
                 WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
-                $this->gather_duplicate_posts_data( $post, $matching_post_title_id );
-                wp_delete_attachment( $post->ID, true );
-                WP_CLI::log( "Deleted duplicate post ID {$post->ID}." );
+                $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
+                wp_delete_attachment( $duplicate_post->ID, true );
+                WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
                 return;
             }
         }
@@ -324,14 +324,15 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function gather_duplicate_posts_data( $post, $matching_post_title_id ): void {
+        private function gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id ): void {
             $this->duplicate_posts_to_log[] = array(
-                'original_post_id'     => $matching_post_title_id,
-                'original_post_title'  => $this->unique_post_titles[$matching_post_title_id],
-                'original_pdf_url'     => get_attached_file( $matching_post_title_id ),
-                'duplicate_post_id'    => $post->ID,
-                'duplicate_post_title' => $post->post_title,
-                'duplicate_pdf_url'   => $post->guid,
+                'original_post_id'       => $matching_post_title_id,
+                'original_post_title'    => $this->unique_post_titles[$matching_post_title_id],
+                'original_pdf_url'       => get_attached_file( $matching_post_title_id ),
+                'duplicate_post_id'      => $duplicate_post->ID,
+                'duplicate_post_title'   => $duplicate_post->post_title,
+                'duplicate_pdf_url'      => $duplicate_post->guid,
+                'duplicate_pdf_filesize' => filesize( get_attached_file( $duplicate_post->ID ) ),
             );
         }
 
@@ -369,6 +370,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                         'duplicate_post_id',
                         'duplicate_post_title',
                         'duplicate_pdf_url',
+                        'duplicate_pdf_filesize',
                     ),
                 );
 
