@@ -207,7 +207,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                         // If the postmeta exists but the file is not found, log the missing file URL
                         // If the postmeta does not exist, we assume the PDF file is missing
                         if ( ($pdf_file_path && ! file_exists( $pdf_file_path ) ) || null === $pdf_file_path ) {
-                            $this->handle_missing_pdf_file( $post, $dlp_document_attachement_type, $pdf_file_path );
+                            $this->handle_missing_pdf_file( $post, $pdf_link_type, $pdf_file_path );
                             continue;
                         }
                         break;
