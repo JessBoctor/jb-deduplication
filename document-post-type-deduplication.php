@@ -73,6 +73,21 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         private $total_duplicate_posts = 0;
 
         /**
+         * Holds the posts which have been deleted because the PDF file is missing.
+         * This will allow us to log the deleted posts in a CSV file at the end of the batch
+         *
+         * @var array
+         */
+        private $stash_of_missing_pdf_posts = array();
+
+        /**
+         * Total number of DLP Document posts with a missing PDF file.
+         *
+         * @var int
+         */
+        private $total_missing_pdf_posts = 0;
+
+        /**
          * Search for duplicate DLP Document files.
          *
          * @param array $args Positional arguments (not used).
@@ -331,7 +346,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @return void
          */
         private function handle_missing_pdf_file( object $dlp_document_post, string $missing_pdf_url ): void {
-            $this->total_duplicate_posts++;
+            $this->total_missing_pdf_posts++;
             $missing_pdf_message =
                 "
                     The PDF file attached to DLP Document post ID {$dlp_document_post->ID} with title '{$dlp_document_post->post_title}' does not exist.
@@ -341,7 +356,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $missing_pdf_message );
                 WP_CLI::confirm( 'Log the DLP Document post and missing PDF file URL to CSV?', 'yes' );
-                $this->gather_missing_pdf_file_data( $dlp_document_post, $missing_pdf_url );
+                $this->gather_missing_pdf_posts_data( $dlp_document_post, $missing_pdf_url );
                 return;
             }
 
@@ -349,7 +364,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $missing_pdf_message);
                 WP_CLI::confirm( 'Do you want to delete the DLP Document post since the attached PDF URL is invalid?', 'yes' );
-                $this->gather_missing_pdf_file_data( $dlp_document_post, $missing_pdf_url );
+                $this->gather_missing_pdf_posts_data( $dlp_document_post, $missing_pdf_url );
                 wp_delete_post( $dlp_document_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$dlp_document_post->ID}." );
                 return;
@@ -434,8 +449,43 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             }
         }
 
-            // Log the number of unique post titles found
-            WP_CLI::log( 'Unique DLP Document posts found: ' . count( $this->unique_post_titles ) );
+        /**
+         * Handle logging missing PDF results.
+         * @return void
+         */
+        private function log_missing_pdf_results(): void {
+            // Log the number of duplicate posts found
+            WP_CLI::log( "Total posts with missing PDF file found: {$this->total_missing_pdf_posts}" );
+
+            // Log the number of duplicate posts recorded or deleted
+            if ( $this->dry_run ) {
+                WP_CLI::log( 'Total posts with missing PDF file logged: ' . count( $this->stash_of_missing_pdf_posts ) );
+            } else {
+                WP_CLI::log( 'Total posts with missing PDF file deleted: ' . count( $this->stash_of_missing_pdf_posts )  );
+            }
+
+            // Write the duplicate posts to a CSV file
+            if (  ! empty( $this->stash_of_missing_pdf_posts ) ) {
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/dlp-doc-posts-missing-pdf-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+                if ( ! $csv_file_path ) {
+                    WP_CLI::error( 'Failed to create CSV file for missing PDF posts.' );
+                    return;
+                }
+
+                // Write the header and data to the CSV file
+                WP_CLI\Utils\write_csv(
+                    $csv_file_path,
+                    $this->stash_of_missing_pdf_posts,
+                    array(
+                        'dlp_document_post_id',
+                        'dlp_document_post_title',
+                        'missing_pdf_url',
+                    ),
+                );
+
+                WP_CLI::log( "Missing PDF posts written to CSV file: {$csv_file_path}" );
+                fclose( $csv_file_path );
+            }
         }
     }
     WP_CLI::add_command( 'dlp-document-dedup', 'DLP_Document_Deduplication_Command' );
