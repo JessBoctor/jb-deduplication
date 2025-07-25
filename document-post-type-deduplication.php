@@ -183,6 +183,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     }
                 }
 
+                // Check if the PDF filed attached to the DLP Document post is still valid
+                $pdf_file_path_attached_to_post = get_post_meta( $post->ID, '_dlp_direct_link_url', true );
+                if ( ! file_exists( $pdf_file_path_attached_to_post ) ) {
+                    $this->handle_missing_pdf_file( $post, $pdf_file_path_attached_to_post );
+                    continue;
+                }
+
                 // Add the unmodified post title to the unique titles array
                 $this->unique_post_titles[$post->ID] = $post->post_title;
             }
@@ -315,7 +322,39 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             }
         }
 
-        
+        /**
+         * Handle a DLP Document post with a missing PDF file.
+         * Allows us to clean out posts with invalid PDF file URLs attached to them.
+         *
+         * @param object $post The post object that is a duplicate.
+         * @param int|string $missing_pdf_url The URL of the PDF file which is missing.
+         * @return void
+         */
+        private function handle_missing_pdf_file( object $dlp_document_post, string $missing_pdf_url ): void {
+            $this->total_duplicate_posts++;
+            $missing_pdf_message =
+                "
+                    The PDF file attached to DLP Document post ID {$dlp_document_post->ID} with title '{$dlp_document_post->post_title}' does not exist.
+                    The url of the missing PDF file is {$missing_pdf_url}).
+                ";
+
+            if ( $this->dry_run ) {
+                WP_CLI::log( "Dry run: " . $missing_pdf_message );
+                WP_CLI::confirm( 'Log the DLP Document post and missing PDF file URL to CSV?', 'yes' );
+                $this->gather_missing_pdf_file_data( $dlp_document_post, $missing_pdf_url );
+                return;
+            }
+
+            if ( ! $this->dry_run ) {
+                // Logic to handle duplicates, e.g., delete or mark as duplicate
+                WP_CLI::log( $missing_pdf_message);
+                WP_CLI::confirm( 'Do you want to delete the DLP Document post since the attached PDF URL is invalid?', 'yes' );
+                $this->gather_missing_pdf_file_data( $dlp_document_post, $missing_pdf_url );
+                wp_delete_post( $dlp_document_post->ID, true );
+                WP_CLI::log( "Deleted duplicate post ID {$dlp_document_post->ID}." );
+                return;
+            }
+        }
 
         /**
          * Gather the duplicate posts data for logging later
