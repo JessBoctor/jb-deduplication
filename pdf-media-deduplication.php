@@ -405,7 +405,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
      * Clear out CSV Log files stored in jb-deduplication/logs related to PDF media deduplication.
      *
      * Usage:
-     *  wp pdf-media-dedup-delete_logs
+     *  wp pdf-media-dedup-delete-logs
      *
      * @param none
      * @return void
@@ -422,5 +422,5 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             WP_CLI::log( 'No log CSV files found to delete.' );
         }
     }
-    WP_CLI::add_command( 'pdf-media-dedup-delete_logs', 'delete_pdf_media_deduplication_log_files' );
+    WP_CLI::add_command( 'pdf-media-dedup-delete-logs', 'delete_pdf_media_deduplication_log_files' );
 }
