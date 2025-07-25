@@ -19,8 +19,8 @@ if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
     return;
 }
 
-if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
-    class PDF_Media_Deduplication_Command {
+if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
+    class DLP_Document_Deduplication_Command {
 
         /**
          * Number of posts to process per batch.
@@ -382,7 +382,10 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             WP_CLI::log( 'Unique PDF posts found: ' . count( $this->unique_post_titles ) );
         }
     }
-    WP_CLI::add_command( 'dlp-document-dedup', 'PDF_Media_Deduplication_Command' );
+    WP_CLI::add_command( 'dlp-document-dedup', 'DLP_Document_Deduplication_Command' );
+}
+
+if ( class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
     /**
      * Clear out fields stored in wp_options related to DLP Document deduplication.
