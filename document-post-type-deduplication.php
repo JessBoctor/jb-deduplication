@@ -58,15 +58,15 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         private $unique_post_titles = array();
 
         /**
-         * Holds the posts which have been deleted.
+         * Holds the duplicate posts which have been deleted.
          * This will allow us to log the deleted posts in a CSV file at the end of the batch
          *
          * @var array
          */
-        private $duplicate_posts_to_log = array();
+        private $stash_of_duplicate_dlp_doc_posts = array();
 
         /**
-         * Total number of DLP Document posts detected in the media library.
+         * Total number of duplicate DLP Document posts detected.
          *
          * @var int
          */
@@ -365,7 +365,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @return void
          */
         private function gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id ): void {
-            $this->duplicate_posts_to_log[] = array(
+            $this->stash_of_duplicate_dlp_doc_posts[] = array(
                 'original_post_id'       => $matching_post_title_id,
                 'original_post_title'    => $this->unique_post_titles[$matching_post_title_id],
                 'original_dlp_doc_url'       => get_attached_file( $matching_post_title_id ),
@@ -377,23 +377,39 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         }
 
         /**
-         * Handle logging the results of the deduplication process.
+         * Gather the duplicate posts data for logging later
+         * This will be used to log the deleted posts in a CSV file at the end of the batch
+         *
+         * @param object $post The post object that is a duplicate.
+         * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function log_results(): void {
+        private function gather_missing_pdf_posts_data( object $dlp_doc_post, string $missing_pdf_url ): void {
+            $this->stash_of_missing_pdf_posts[] = array(
+                'dlp_document_post_id'      => $dlp_doc_post->ID,
+                'dlp_document_post_title'   => $dlp_doc_post->post_title,
+                'missing_pdf_url'           => $missing_pdf_url,
+            );
+        }
+
+        /**
+         * Handle logging duplicate posts results.
+         * @return void
+         */
+        private function log_duplicate_post_results(): void {
             // Log the number of duplicate posts found
             WP_CLI::log( "Total duplicate posts found: {$this->total_duplicate_posts}" );
 
             // Log the number of duplicate posts recorded or deleted
             if ( $this->dry_run ) {
-                WP_CLI::log( 'Total duplicate posts logged: ' . count( $this->duplicate_posts_to_log ) );
+                WP_CLI::log( 'Total duplicate posts logged: ' . count( $this->stash_of_duplicate_dlp_doc_posts ) );
             } else {
-                WP_CLI::log( 'Total duplicate posts deleted: ' . count( $this->duplicate_posts_to_log )  );
+                WP_CLI::log( 'Total duplicate posts deleted: ' . count( $this->stash_of_duplicate_dlp_doc_posts )  );
             }
 
             // Write the duplicate posts to a CSV file
-            if (  ! empty( $this->duplicate_posts_to_log ) ) {
-                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+            if (  ! empty( $this->stash_of_duplicate_dlp_doc_posts ) ) {
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-dlp-doc-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
                 if ( ! $csv_file_path ) {
                     WP_CLI::error( 'Failed to create CSV file for duplicate posts.' );
                     return;
@@ -402,7 +418,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 // Write the header and data to the CSV file
                 WP_CLI\Utils\write_csv(
                     $csv_file_path,
-                    $this->duplicate_posts_to_log,
+                    $this->stash_of_duplicate_dlp_doc_posts,
                     array(
                         'original_post_id',
                         'original_post_title',
@@ -410,13 +426,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                         'duplicate_post_id',
                         'duplicate_post_title',
                         'duplicate_dlp_doc_url',
-                        'duplicate_dlp_doc_filesize',
                     ),
                 );
 
                 WP_CLI::log( "Duplicate posts written to CSV file: {$csv_file_path}" );
                 fclose( $csv_file_path );
             }
+        }
 
             // Log the number of unique post titles found
             WP_CLI::log( 'Unique DLP Document posts found: ' . count( $this->unique_post_titles ) );
