@@ -371,26 +371,38 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @param int|string $missing_pdf_url The URL of the PDF file which is missing.
          * @return void
          */
-        private function handle_missing_pdf_file( object $dlp_document_post, string $missing_pdf_url ): void {
+        private function handle_missing_pdf_file(
+                object $dlp_document_post,
+                null|string $pdf_link_type = null,
+                null|string $missing_pdf_id_or_url = null
+        ): void {
             $this->total_missing_pdf_posts++;
             $missing_pdf_message =
                 "
-                    The PDF file attached to DLP Document post ID {$dlp_document_post->ID} with title '{$dlp_document_post->post_title}' does not exist.
-                    The url of the missing PDF file is {$missing_pdf_url}).
+                    The PDF attached to DLP Document post ID {$dlp_document_post->ID} with title '{$dlp_document_post->post_title}' does not exist.
                 ";
+
+            if ( 'url' === $pdf_link_type ) {
+                $missing_pdf_message .= " The url of the missing PDF file is {$missing_pdf_id_or_url}).";
+            }
+
+            if ( 'file' === $pdf_link_type ) {
+                $missing_pdf_message .= " The ID of the missing PDF post is {$missing_pdf_id_or_url}).";
+            }
+
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $missing_pdf_message );
-                WP_CLI::confirm( 'Log the DLP Document post and missing PDF file URL to CSV?', 'yes' );
-                $this->gather_missing_pdf_posts_data( $dlp_document_post, $missing_pdf_url );
+                WP_CLI::confirm( 'Log the DLP Document post and missing PDF file to CSV?', 'yes' );
+                $this->gather_missing_pdf_posts_data( $dlp_document_post, $pdf_link_type, $missing_pdf_id_or_url );
                 return;
             }
 
             if ( ! $this->dry_run ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $missing_pdf_message);
-                WP_CLI::confirm( 'Do you want to delete the DLP Document post since the attached PDF URL is invalid?', 'yes' );
-                $this->gather_missing_pdf_posts_data( $dlp_document_post, $missing_pdf_url );
+                WP_CLI::confirm( 'Do you want to delete the DLP Document post since the PDF is missing?', 'yes' );
+                $this->gather_missing_pdf_posts_data( $dlp_document_post, $pdf_link_type, $missing_pdf_id_or_url );
                 wp_delete_post( $dlp_document_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$dlp_document_post->ID}." );
                 return;
@@ -425,11 +437,16 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function gather_missing_pdf_posts_data( object $dlp_doc_post, string $missing_pdf_url ): void {
+        private function gather_missing_pdf_posts_data(
+            object $dlp_doc_post,
+            null|string $pdf_link_type = null,
+            null|string $missing_pdf_id_or_url
+        ): void {
             $this->stash_of_missing_pdf_posts[] = array(
                 'dlp_document_post_id'      => $dlp_doc_post->ID,
                 'dlp_document_post_title'   => $dlp_doc_post->post_title,
-                'missing_pdf_url'           => $missing_pdf_url,
+                'pdf_link_type'           => $pdf_link_type,
+                'missing_pdf_id_or_url'   => $missing_pdf_id_or_url,
             );
         }
 
@@ -505,7 +522,8 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     array(
                         'dlp_document_post_id',
                         'dlp_document_post_title',
-                        'missing_pdf_url',
+                        'pdf_link_type',
+                        'missing_pdf_id_or_url',
                     ),
                 );
 
