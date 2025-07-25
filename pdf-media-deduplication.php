@@ -383,6 +383,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
         }
     }
     WP_CLI::add_command( 'pdf-media-dedup', 'PDF_Media_Deduplication_Command' );
+}
+
+if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
     /**
      * Clear out fields stored in wp_options related to PDF media deduplication.
