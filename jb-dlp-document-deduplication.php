@@ -198,13 +198,35 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     }
                 }
 
-                // Check if the PDF filed attached to the DLP Document post is still valid
-                $pdf_file_path_attached_to_post = get_post_meta( $post->ID, '_dlp_direct_link_url', true );
-                if ( $pdf_file_path_attached_to_post && ! file_exists( $pdf_file_path_attached_to_post ) ) {
-                    $this->handle_missing_pdf_file( $post, $pdf_file_path_attached_to_post );
-                    continue;
+                // Check if the direct link PDF filed attached to the DLP Document post is still valid
+                $pdf_link_type = get_post_meta( $post->ID, '_dlp_document_link_type', true ) ?? null;
+
+                switch ( $pdf_link_type ) {
+                    case 'url':
+                        $pdf_file_path = get_post_meta( $post->ID, '_dlp_direct_link_url', true ) ?? null;
+                        // If the postmeta exists but the file is not found, log the missing file URL
+                        // If the postmeta does not exist, we assume the PDF file is missing
+                        if ( ($pdf_file_path && ! file_exists( $pdf_file_path ) ) || null === $pdf_file_path ) {
+                            $this->handle_missing_pdf_file( $post, $dlp_document_attachement_type, $pdf_file_path );
+                            continue;
+                        }
+                        break;
+                    case 'file':
+                        $pdf_post_id = get_post_meta( $post->ID, '_dlp_attached_file_id', true ) ?? null;
+                        // If the postmeta exists but the post is not found, log the missing post ID
+                        // If the postmeta does not exist, we assume the PDF file is missing
+                        if ( ( $pdf_post_id && ! get_post_status( $pdf_post_id ) ) || null === $pdf_post_id ) {
+                            $this->handle_missing_pdf_file( $post, $pdf_link_type, $pdf_post_id );
+                            continue;
+                        }
+                        break;
+                    default:
+                        // If the DLP Document post is neither a direct link nor a media library attachment, it should be deleted
+                        $this->handle_missing_pdf_file( $post, $pdf_link_type, null );
+                        continue;
                 }
 
+                // If we reach here, the post is unique and valid
                 // Add the unmodified post title to the unique titles array
                 $this->unique_post_titles[$post->ID] = $post->post_title;
             }
