@@ -199,6 +199,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 }
 
                 // Check if the direct link PDF filed attached to the DLP Document post is still valid
+                // To-Do: Move this logic to a separate function this way it can support duplicate posts as well
                 $pdf_link_type = get_post_meta( $post->ID, '_dlp_document_link_type', true ) ?? null;
 
                 switch ( $pdf_link_type ) {
@@ -336,6 +337,10 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          */
         private function handle_duplicate_post( object $duplicate_post, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
+            // Determine if the PDF is attached via a post or URL
+            // To-Do: Determin is the attached PDF is valid
+            $pdf_link_type = get_post_meta( $duplicate_post->ID, '_dlp_document_link_type', true ) ?? null;
+
             $original_attached_pdf_url = get_post_meta( $matching_post_title_id, '_dlp_direct_link_url', true );
             $duplicate_attached_pdf_url = get_post_meta( $duplicate_post->ID, '_dlp_direct_link_url', true );
             $duplicate_post_message =
