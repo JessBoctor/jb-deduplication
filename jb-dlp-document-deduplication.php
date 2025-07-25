@@ -200,7 +200,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
                 // Check if the PDF filed attached to the DLP Document post is still valid
                 $pdf_file_path_attached_to_post = get_post_meta( $post->ID, '_dlp_direct_link_url', true );
-                if ( ! file_exists( $pdf_file_path_attached_to_post ) ) {
+                if ( $pdf_file_path_attached_to_post && ! file_exists( $pdf_file_path_attached_to_post ) ) {
                     $this->handle_missing_pdf_file( $post, $pdf_file_path_attached_to_post );
                     continue;
                 }
