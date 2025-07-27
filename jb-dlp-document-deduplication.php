@@ -156,14 +156,15 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 WP_CLI::log( "Checking post ID {$post->ID} with title '{$post_title}' for duplicates." );
 
                 // Confirm if the post has a valid PDF file attached to it
-                if ( ! $this->determine_if_pdf_exists( $post ) ) {
+                $attached_pdf_meta = $this->determine_if_pdf_exists( $post );
+                if ( empty( $attached_pdf_meta ) ) {
                     continue;
                 }
 
                 // Check if the post title is already in the unique titles array
                 $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                 if ( ! empty( $matching_post_title_id ) ) {
-                    $this->handle_duplicate_post( $post, $matching_post_title_id );
+                    $this->handle_duplicate_post( $post, $attached_pdf_meta, $matching_post_title_id );
                     continue;
                 } 
 
@@ -176,7 +177,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     str_replace( '-1', '', $post_title );
                     $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                     if ( ! empty( $matching_post_title_id ) ) {
-                        $this->handle_duplicate_post( $post, $matching_post_title_id );
+                        $this->handle_duplicate_post( $post, $attached_pdf_meta, $matching_post_title_id );
                         continue;
                     }
                 }
@@ -186,7 +187,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     str_replace( '-2', '', $post_title );
                     $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                     if ( ! empty( $matching_post_title_id ) ) {
-                        $this->handle_duplicate_post( $post, $matching_post_title_id );
+                        $this->handle_duplicate_post( $post, $attached_pdf_meta, $matching_post_title_id );
                         continue;
                     }
                 }
@@ -196,7 +197,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     str_replace( '-pdf', '', $post_title );
                     $matching_post_title_id = array_search( $post_title, $this->unique_post_titles, true );
                     if ( ! empty( $matching_post_title_id ) ) {
-                        $this->handle_duplicate_post( $post, $matching_post_title_id );
+                        $this->handle_duplicate_post( $post, $attached_pdf_meta, $matching_post_title_id );
                         continue;
                     }
                 }
@@ -309,19 +310,30 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function handle_duplicate_post( object $duplicate_post, int|string $matching_post_title_id ): void {
+        private function handle_duplicate_post( object $duplicate_post, array $attached_pdf_meta, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
             // Determine if the PDF is attached via a post or URL
             // To-Do: Determin is the attached PDF is valid
-            $pdf_link_type = get_post_meta( $duplicate_post->ID, '_dlp_document_link_type', true ) ?? null;
+            $pdf_link_type = get_post_meta( $matching_post_title_id, '_dlp_document_link_type', true ) ?? null;
 
-            $original_attached_pdf_url = get_post_meta( $matching_post_title_id, '_dlp_direct_link_url', true );
-            $duplicate_attached_pdf_url = get_post_meta( $duplicate_post->ID, '_dlp_direct_link_url', true );
+            // Set the meta key based on the link type
+            $pdf_meta_key = '';
+            if ( 'url' === $pdf_link_type ) {
+                $pdf_meta_key = '_dlp_direct_link_url';
+            }
+
+            if ( 'file' === $pdf_link_type ) {
+                $pdf_meta_key = '_dlp_attached_file_id';
+            }
+
+            $matching_attached_pdf = get_post_meta( $matching_post_title_id, $pdf_meta_key, true );
+            $duplicate_attached_pdf = $attached_pdf_meta['pdf_file'];
+
             $duplicate_post_message =
                 "
                     Duplicate DLP Document found. Original post ID {$matching_post_title_id} with title '{$this->unique_post_titles[$matching_post_title_id]}'
-                    ({$original_attached_pdf_url}).
-                    Duplicate post ID {$duplicate_post->ID} has title '{$duplicate_post->post_title}' ({$duplicate_attached_pdf_url}).
+                    ({$matching_attached_pdf}).
+                    Duplicate post ID {$duplicate_post->ID} has title '{$duplicate_post->post_title}' ({$duplicate_attached_pdf}).
                 ";
 
             if ( $this->dry_run ) {
@@ -347,11 +359,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * If the PDF file is missing, handle it accordingly.
          *
          * @param object $post The post object that is a DLP Document.
-         * @return bool True if the PDF file exists, false otherwise.
+         * @return array True if the PDF file exists, false otherwise.
          */
-        private function determine_if_pdf_exists( object $dlp_document_post ): bool {
+        private function determine_if_pdf_exists( object $dlp_document_post ): array {
             // We assume the DLP Document post has a PDF file attached to it
-            $is_pdf_attached = true;
+            $attached_pdf_meta = [];
 
             // Confirm that PDF file is attached by checking the post meta
             $pdf_link_type = get_post_meta( $dlp_document_post->ID, '_dlp_document_link_type', true ) ?? null;
@@ -362,37 +374,38 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     // If the postmeta does not exist, the PDF file is missing
                     if ( null === $pdf_file_path ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
-                        $is_pdf_attached = false;
                     }
 
                     // If the postmeta exists, check that the file exists
                     if ( ($pdf_file_path && ! file_exists( $pdf_file_path ) ) || null === $pdf_file_path ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, $pdf_file_path );
-                        $is_pdf_attached = false;
                     }
+
+                    $attached_pdf_meta['link_type'] = $pdf_link_type;
+                    $attached_pdf_meta['pdf_file'] = $pdf_file_path;
                     break;
                 case 'file':
                     $pdf_post_id = get_post_meta( $dlp_document_post->ID, '_dlp_attached_file_id', true ) ?? null;
                     // If the postmeta does not exist, we assume the PDF file is missing
                     if ( null === $pdf_post_id ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
-                        $is_pdf_attached = false;
                     }
 
                     // If the postmeta contains a document post ID, check that the document post exists
                     if ( ( $pdf_post_id && ! get_post_status( $pdf_post_id ) ) || null === $pdf_post_id ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, $pdf_post_id );
-                        $is_pdf_attached = false;
                     }
+
+                    $attached_pdf_meta['link_type'] = $pdf_link_type;
+                    $attached_pdf_meta['pdf_file'] = $pdf_post_id;
                     break;
                 default:
                     // If the DLP Document post is neither a direct link nor a media library attachment, it should be deleted
                     $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
-                    $is_pdf_attached = false;
                     break;
             }
 
-            return $is_pdf_attached;
+            return $attached_pdf_meta;
         }
 
         /**
