@@ -153,8 +153,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 $post_title = $post->post_title;
                 $matching_post_title_id = null;
 
-                if ( $this->dry_run ) {
-                    WP_CLI::log( "Checking post ID {$post->ID} with title '{$post_title}' for duplicates." );
+                WP_CLI::log( "Checking post ID {$post->ID} with title '{$post_title}' for duplicates." );
+
+                // Confirm if the post has a valid PDF file attached to it
+                if ( ! $this->determine_if_pdf_exists( $post ) ) {
+                    continue;
                 }
 
                 // Check if the post title is already in the unique titles array
@@ -196,35 +199,6 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                         $this->handle_duplicate_post( $post, $matching_post_title_id );
                         continue;
                     }
-                }
-
-                // Check if the direct link PDF filed attached to the DLP Document post is still valid
-                // To-Do: Move this logic to a separate function this way it can support duplicate posts as well
-                $pdf_link_type = get_post_meta( $post->ID, '_dlp_document_link_type', true ) ?? null;
-
-                switch ( $pdf_link_type ) {
-                    case 'url':
-                        $pdf_file_path = get_post_meta( $post->ID, '_dlp_direct_link_url', true ) ?? null;
-                        // If the postmeta exists but the file is not found, log the missing file URL
-                        // If the postmeta does not exist, we assume the PDF file is missing
-                        if ( ($pdf_file_path && ! file_exists( $pdf_file_path ) ) || null === $pdf_file_path ) {
-                            $this->handle_missing_pdf_file( $post, $pdf_link_type, $pdf_file_path );
-                            continue;
-                        }
-                        break;
-                    case 'file':
-                        $pdf_post_id = get_post_meta( $post->ID, '_dlp_attached_file_id', true ) ?? null;
-                        // If the postmeta exists but the post is not found, log the missing post ID
-                        // If the postmeta does not exist, we assume the PDF file is missing
-                        if ( ( $pdf_post_id && ! get_post_status( $pdf_post_id ) ) || null === $pdf_post_id ) {
-                            $this->handle_missing_pdf_file( $post, $pdf_link_type, $pdf_post_id );
-                            continue;
-                        }
-                        break;
-                    default:
-                        // If the DLP Document post is neither a direct link nor a media library attachment, it should be deleted
-                        $this->handle_missing_pdf_file( $post, $pdf_link_type, null );
-                        continue;
                 }
 
                 // If we reach here, the post is unique and valid
@@ -366,6 +340,59 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
                 return;
             }
+        }
+
+        /**
+         * Get the PDF file path or post ID for the DLP Document post.
+         * If the PDF file is missing, handle it accordingly.
+         *
+         * @param object $post The post object that is a DLP Document.
+         * @return bool True if the PDF file exists, false otherwise.
+         */
+        private function determine_if_pdf_exists( object $dlp_document_post ): bool {
+            // We assume the DLP Document post has a PDF file attached to it
+            $is_pdf_attached = true;
+
+            // Confirm that PDF file is attached by checking the post meta
+            $pdf_link_type = get_post_meta( $dlp_document_post->ID, '_dlp_document_link_type', true ) ?? null;
+
+            switch ( $pdf_link_type ) {
+                case 'url':
+                    $pdf_file_path = get_post_meta( $dlp_document_post->ID, '_dlp_direct_link_url', true ) ?? null;
+                    // If the postmeta does not exist, the PDF file is missing
+                    if ( null === $pdf_file_path ) {
+                        $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
+                        $is_pdf_attached = false;
+                    }
+
+                    // If the postmeta exists, check that the file exists
+                    if ( ($pdf_file_path && ! file_exists( $pdf_file_path ) ) || null === $pdf_file_path ) {
+                        $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, $pdf_file_path );
+                        $is_pdf_attached = false;
+                    }
+                    break;
+                case 'file':
+                    $pdf_post_id = get_post_meta( $dlp_document_post->ID, '_dlp_attached_file_id', true ) ?? null;
+                    // If the postmeta does not exist, we assume the PDF file is missing
+                    if ( null === $pdf_post_id ) {
+                        $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
+                        $is_pdf_attached = false;
+                    }
+
+                    // If the postmeta contains a document post ID, check that the document post exists
+                    if ( ( $pdf_post_id && ! get_post_status( $pdf_post_id ) ) || null === $pdf_post_id ) {
+                        $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, $pdf_post_id );
+                        $is_pdf_attached = false;
+                    }
+                    break;
+                default:
+                    // If the DLP Document post is neither a direct link nor a media library attachment, it should be deleted
+                    $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
+                    $is_pdf_attached = false;
+                    break;
+            }
+
+            return $is_pdf_attached;
         }
 
         /**
