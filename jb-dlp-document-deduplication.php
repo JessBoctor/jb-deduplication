@@ -327,19 +327,29 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             $this->total_duplicate_posts++;
             // Determine if the PDF is attached via a post or URL
             // To-Do: Determin is the attached PDF is valid
-            $pdf_link_type = get_post_meta( $matching_post_title_id, '_dlp_document_link_type', true ) ?? null;
+            $matching_post_pdf_link_type = get_post_meta( $matching_post_title_id, '_dlp_document_link_type', true ) ?? null;
 
             // Set the meta key based on the link type
-            $pdf_meta_key = '';
-            if ( 'url' === $pdf_link_type ) {
-                $pdf_meta_key = '_dlp_direct_link_url';
+            $matching_post_pdf_meta_key = '';
+            if ( 'url' === $matching_post_pdf_link_type ) {
+                $matching_post_pdf_meta_key = '_dlp_direct_link_url';
             }
 
-            if ( 'file' === $pdf_link_type ) {
-                $pdf_meta_key = '_dlp_attached_file_id';
+            if ( 'file' === $matching_post_pdf_link_type ) {
+                $matching_post_pdf_meta_key = '_dlp_attached_file_id';
             }
 
-            $matching_attached_pdf = get_post_meta( $matching_post_title_id, $pdf_meta_key, true );
+            $matching_attached_pdf = get_post_meta( $matching_post_title_id, $matching_post_pdf_meta_key, true );
+            // If the matching attached PDF is an array, use the first element and check for confirmation
+            if( is_array( $matching_attached_pdf ) ) {
+                if ( ! empty( $matching_attached_pdf ) ) {
+                    $matching_attached_pdf = (string) $matching_attached_pdf[0];
+                    WP_CLI::confirm( "The post meta for the PDF for post #$matching_post_title_id is an array. Using the first element: {$matching_attached_pdf}. Continue?", 'yes' );
+                } else {
+                    $matching_attached_pdf = '';
+                    WP_CLI::confirm( "The post meta for the PDF for post #$matching_post_title_id is an empty array. Using an empty string. Continue", 'yes' );
+                }
+            }
             $duplicate_attached_pdf = $attached_pdf_meta['pdf_file'];
 
             $duplicate_post_message =
@@ -354,7 +364,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 if ( ! $this->skip_confirmations ) {
                     WP_CLI::confirm( 'Do you want to log the duplicate DLP Document post to CSV?', 'yes' );
                 }
-                $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
+                $this->gather_duplicate_posts_data(
+                    $duplicate_post,
+                    $attached_pdf_meta,
+                    $matching_post_title_id,
+                    $matching_post_pdf_link_type,
+                    $matching_attached_pdf
+                );
                 return;
             }
 
@@ -364,7 +380,14 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 if ( ! $this->skip_confirmations ) {
                     WP_CLI::confirm( 'Do you want to delete the duplicate DLP Document post?', 'yes' );
                 }
-                $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
+                $this->gather_duplicate_posts_data(
+                    $duplicate_post,
+                    $attached_pdf_meta,
+                    $matching_post_title_id,
+                    $matching_post_pdf_link_type,
+                    $matching_attached_pdf
+                );
+                // To-do: Prevent the post from being deleted before the details of the duplicate post are logged
                 wp_delete_post( $duplicate_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
                 return;
@@ -483,15 +506,22 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @param int|string $matching_post_title_id The IDs of posts with the same title.
          * @return void
          */
-        private function gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id ): void {
+        private function gather_duplicate_posts_data(
+            object $duplicate_post,
+            array $attached_pdf_meta,
+            int|string $matching_post_title_id,
+            string $matching_post_pdf_link_type,
+            string $matching_attached_pdf
+        ): void {
             $this->stash_of_duplicate_dlp_doc_posts[] = array(
-                'original_post_id'       => $matching_post_title_id,
-                'original_post_title'    => $this->unique_post_titles[$matching_post_title_id],
-                'original_dlp_doc_url'       => get_attached_file( $matching_post_title_id ),
-                'duplicate_post_id'      => $duplicate_post->ID,
-                'duplicate_post_title'   => $duplicate_post->post_title,
-                'duplicate_dlp_doc_url'      => $duplicate_post->guid,
-                'duplicate_dlp_doc_filesize' => filesize( get_attached_file( $duplicate_post->ID ) ),
+                'original_post_id'           => $matching_post_title_id,
+                'original_post_title'        => $this->unique_post_titles[$matching_post_title_id],
+                'original_post_link_type'    => $matching_post_pdf_link_type,
+                'original_dlp_doc_pdf'       => $matching_attached_pdf,
+                'duplicate_post_id'          => $duplicate_post->ID,
+                'duplicate_post_title'       => $duplicate_post->post_title,
+                'duplicate_post_link_type'   => $attached_pdf_meta['link_type'],
+                'duplicate_dlp_doc_pdf'      => $attached_pdf_meta['pdf_file'],
             );
         }
 
@@ -533,7 +563,8 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
             // Write the duplicate posts to a CSV file
             if (  ! empty( $this->stash_of_duplicate_dlp_doc_posts ) ) {
-                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-dlp-doc-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+                $csv_prefix = $this->dry_run ? 'dry-run-' : 'deleted-';
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/' . $csv_prefix . 'duplicate-dlp-doc-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
                 if ( ! $csv_file_path ) {
                     WP_CLI::error( 'Failed to create CSV file for duplicate posts.' );
                     return;
@@ -546,10 +577,12 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     array(
                         'original_post_id',
                         'original_post_title',
-                        'original_dlp_doc_url',
+                        'original_post_link_type',
+                        'original_dlp_doc_pdf',
                         'duplicate_post_id',
                         'duplicate_post_title',
-                        'duplicate_dlp_doc_url',
+                        'duplicate_post_link_type',
+                        'duplicate_dlp_doc_pdf',
                     ),
                 );
 
@@ -575,7 +608,8 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
             // Write the duplicate posts to a CSV file
             if (  ! empty( $this->stash_of_missing_pdf_posts ) ) {
-                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/dlp-doc-posts-missing-pdf-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+                $csv_prefix = $this->dry_run ? 'dry-run-' : 'deleted-';
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/' . $csv_prefix . 'dlp-doc-posts-missing-pdf-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
                 if ( ! $csv_file_path ) {
                     WP_CLI::error( 'Failed to create CSV file for missing PDF posts.' );
                     return;
@@ -631,14 +665,17 @@ if ( class_exists( 'DLP_Document_Deduplication_Command' ) ) {
      */
     function delete_dlp_document_deduplication_log_files(): void {
         WP_CLI::confirm( 'Are you sure you want to delete all DLP Document deduplication log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
-        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-dlp-doc-posts-*.csv' );
-        if ( ! empty( $log_files ) ) {
-            foreach ( $log_files as $file ) {
-                @unlink( $file );
+        $run_types = array( 'dry-run-', 'deleted-', '' );
+        foreach( $run_types as $run_type ) {
+            $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/' . $run_type . 'duplicate-dlp-doc-posts-*.csv' );
+            if ( ! empty( $log_files ) ) {
+                foreach ( $log_files as $file ) {
+                    @unlink( $file );
+                }
+                WP_CLI::log( 'Deleted all DLP Document deduplication log CSV files.' );
+            } else {
+                WP_CLI::log( 'No log CSV files found to delete.' );
             }
-            WP_CLI::log( 'Deleted all DLP Document deduplication log CSV files.' );
-        } else {
-            WP_CLI::log( 'No log CSV files found to delete.' );
         }
     }
     WP_CLI::add_command( 'dlp-document-dedup-delete-logs', 'delete_dlp_document_deduplication_log_files' );
@@ -654,14 +691,17 @@ if ( class_exists( 'DLP_Document_Deduplication_Command' ) ) {
      */
     function delete_dlp_document_missing_pdf_log_files(): void {
         WP_CLI::confirm( 'Are you sure you want to delete all DLP Document missing PDF log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
-        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/dlp-doc-posts-missing-pdf-*.csv' );
-        if ( ! empty( $log_files ) ) {
-            foreach ( $log_files as $file ) {
-                @unlink( $file );
+        $run_types = array( 'dry-run-', 'deleted-', '' );
+        foreach( $run_types as $run_type ) {
+            $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/' . $run_type . 'dlp-doc-posts-missing-pdf-*.csv' );
+            if ( ! empty( $log_files ) ) {
+                foreach ( $log_files as $file ) {
+                    @unlink( $file );
+                }
+                WP_CLI::log( 'Deleted all DLP Document missing PDF log CSV files.' );
+            } else {
+                WP_CLI::log( 'No log CSV files found to delete.' );
             }
-            WP_CLI::log( 'Deleted all DLP Document missing PDF log CSV files.' );
-        } else {
-            WP_CLI::log( 'No log CSV files found to delete.' );
         }
     }
     WP_CLI::add_command( 'dlp-document-missing-pdf-delete-logs', 'delete_dlp_document_missing_pdf_log_files' );

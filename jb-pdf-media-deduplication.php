@@ -377,7 +377,8 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
             // Write the duplicate posts to a CSV file
             if (  ! empty( $this->duplicate_posts_to_log ) ) {
-                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/pdf-media-duplicate-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
+                $csv_preffix = $this->dry_run ? 'dry-run-' : 'deleted-';
+                $csv_file_path = fopen( JB_DEDUP_PLUGIN_DIR . 'logs/' . $csv_preffix . 'pdf-media-duplicate-posts-' . gmdate( "Ymd-His", time() ) . '.csv', 'x' );
                 if ( ! $csv_file_path ) {
                     WP_CLI::error( 'Failed to create CSV file for duplicate posts.' );
                     return;
@@ -440,14 +441,17 @@ if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
      */
     function delete_pdf_media_deduplication_log_files(): void {
         WP_CLI::confirm( 'Are you sure you want to delete all PDF media deduplication log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
-        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/pdf-media-duplicate-posts-*.csv' );
-        if ( ! empty( $log_files ) ) {
-            foreach ( $log_files as $file ) {
-                @unlink( $file );
+        $run_types = array( 'dry-run-', 'deleted-', '' );
+        foreach ( $run_types as $run_type ) {
+            $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/' . $run_type . 'pdf-media-duplicate-posts-*.csv' );
+            if ( ! empty( $log_files ) ) {
+                foreach ( $log_files as $file ) {
+                    @unlink( $file );
+                }
+                WP_CLI::log( 'Deleted all PDF media deduplication log CSV files.' );
+            } else {
+                WP_CLI::log( 'No log CSV files found to delete.' );
             }
-            WP_CLI::log( 'Deleted all PDF media deduplication log CSV files.' );
-        } else {
-            WP_CLI::log( 'No log CSV files found to delete.' );
         }
     }
     WP_CLI::add_command( 'pdf-media-dedup-delete-logs', 'delete_pdf_media_deduplication_log_files' );
