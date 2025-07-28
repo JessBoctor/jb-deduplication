@@ -23,11 +23,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
     class DLP_Document_Deduplication_Command {
 
         /**
-         * Number of posts to process per batch.
+         * Allow skipping confirmations.
          *
-         * @var int
+         * @var bool
          */
-        private $batch_size = 100;
+        private $skip_confirmations = false;
 
         /**
          * Whether to run in test mode (dry run).
@@ -35,6 +35,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          * @var bool
          */
         private $dry_run = false;
+
+        /**
+         * Number of posts to process per batch.
+         *
+         * @var int
+         */
+        private $batch_size = 100;
 
         /**
          * Minimum post ID to start processing from.
@@ -102,6 +109,12 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 WP_CLI::log( 'Running in dry run mode. No changes will be made.' );
             } else {
                 WP_CLI::log( 'Running in live mode. Changes will be applied.' );
+            }
+
+            // Determine if we are running in dry run mode
+            $this->skip_confirmations = isset( $assoc_args['skip-confirmations'] );
+            if ( $this->skip_confirmations ) {
+                WP_CLI::log( 'Cofirmations will be skipped.' );
             }
 
             // Determine the starting post ID from CLI args or saved option
@@ -338,7 +351,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $duplicate_post_message );
-                WP_CLI::confirm( 'Log the duplicate DLP Document post to CSV?', 'yes' );
+                if ( ! $this->skip_confirmations ) {
+                    WP_CLI::confirm( 'Do you want to log the duplicate DLP Document post to CSV?', 'yes' );
+                }
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 return;
             }
@@ -346,7 +361,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             if ( ! $this->dry_run ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $duplicate_post_message);
-                WP_CLI::confirm( 'Do you want to delete the duplicate DLP Document post?', 'yes' );
+                if ( ! $this->skip_confirmations ) {
+                    WP_CLI::confirm( 'Do you want to delete the duplicate DLP Document post?', 'yes' );
+                }
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 wp_delete_post( $duplicate_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
@@ -438,7 +455,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $missing_pdf_message );
-                WP_CLI::confirm( 'Log the DLP Document post and missing PDF file to CSV?', 'yes' );
+                if ( ! $this->skip_confirmations ) {
+                    WP_CLI::confirm( 'Log the DLP Document post and missing PDF file to CSV?', 'yes' );
+                }
                 $this->gather_missing_pdf_posts_data( $dlp_document_post, $pdf_link_type, $missing_pdf_id_or_url );
                 return;
             }
@@ -446,7 +465,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             if ( ! $this->dry_run ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $missing_pdf_message);
-                WP_CLI::confirm( 'Do you want to delete the DLP Document post since the PDF is missing?', 'yes' );
+                if ( ! $this->skip_confirmations ) {
+                    WP_CLI::confirm( 'Do you want to delete the DLP Document post since the PDF is missing?', 'yes' );
+                }
                 $this->gather_missing_pdf_posts_data( $dlp_document_post, $pdf_link_type, $missing_pdf_id_or_url );
                 wp_delete_post( $dlp_document_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$dlp_document_post->ID}." );

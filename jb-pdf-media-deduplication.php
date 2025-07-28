@@ -12,6 +12,7 @@
  *   wp pdf-media-dedup --start-post-id=500
  *   wp pdf-media-dedup --dry-run --start-post-id=1000
  *   wp pdf-media-dedup --dry-run --start-post-id=1000 --batch-size=50
+ *   wp pdf-media-dedup --skip-confirmations
  *
  * Run the above commands from the terminal.
  */
@@ -23,18 +24,25 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
     class PDF_Media_Deduplication_Command {
 
         /**
-         * Number of posts to process per batch.
-         *
-         * @var int
-         */
-        private $batch_size = 100;
-
-        /**
          * Whether to run in test mode (dry run).
          *
          * @var bool
          */
         private $dry_run = false;
+
+        /**
+         * Wheter to skip confirmation prompts.
+         *
+         * @var bool
+         */
+        private $skip_confirmations = false;
+
+        /**
+         * Number of posts to process per batch.
+         *
+         * @var int
+         */
+        private $batch_size = 100;
 
         /**
          * Minimum post ID to start processing from.
@@ -87,6 +95,12 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 WP_CLI::log( 'Running in dry run mode. No changes will be made.' );
             } else {
                 WP_CLI::log( 'Running in live mode. Changes will be applied.' );
+            }
+
+            // Determine if we are running in dry run mode
+            $this->skip_confirmations = isset( $assoc_args['skip-confirmations'] );
+            if ( $this->skip_confirmations ) {
+                WP_CLI::log( 'Cofirmations will be skipped.' );
             }
 
             // Determine the starting post ID from CLI args or saved option
@@ -300,7 +314,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
 
             if ( $this->dry_run ) {
                 WP_CLI::log( "Dry run: " . $duplicate_post_message );
-                WP_CLI::confirm( 'Log the duplicate post and PDF file to CSV?', 'yes' );
+                if ( ! $this->skip_confirmations ) {
+                   WP_CLI::confirm( 'Log the duplicate post and PDF file to CSV?', 'yes' );
+                }
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 return;
             }
@@ -308,7 +324,9 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             if ( ! $this->dry_run ) {
                 // Logic to handle duplicates, e.g., delete or mark as duplicate
                 WP_CLI::log( $duplicate_post_message);
-                WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
+                if ( ! $this->skip_confirmations ) {
+                    WP_CLI::confirm( 'Do you want to delete the duplicate post and PDF file?', 'yes' );
+                }
                 $this->gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id );
                 wp_delete_attachment( $duplicate_post->ID, true );
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
