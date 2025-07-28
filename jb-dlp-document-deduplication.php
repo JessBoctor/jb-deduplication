@@ -631,7 +631,7 @@ if ( class_exists( 'DLP_Document_Deduplication_Command' ) ) {
      */
     function delete_dlp_document_deduplication_log_files(): void {
         WP_CLI::confirm( 'Are you sure you want to delete all DLP Document deduplication log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
-        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-posts-*.csv' );
+        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/duplicate-dlp-doc-posts-*.csv' );
         if ( ! empty( $log_files ) ) {
             foreach ( $log_files as $file ) {
                 @unlink( $file );
@@ -642,4 +642,27 @@ if ( class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         }
     }
     WP_CLI::add_command( 'dlp-document-dedup-delete-logs', 'delete_dlp_document_deduplication_log_files' );
+
+    /**
+     * Clear out CSV Log files stored in jb-deduplication/logs related to DLP Document missing PDFs.
+     *
+     * Usage:
+     *  wp dlp-document-dedup-delete-logs
+     *
+     * @param none
+     * @return void
+     */
+    function delete_dlp_document_missing_pdf_log_files(): void {
+        WP_CLI::confirm( 'Are you sure you want to delete all DLP Document missing PDF log files? If you need a CSV record of changes, make sure to download it before continuing.', 'yes' );
+        $log_files = glob( JB_DEDUP_PLUGIN_DIR . 'logs/dlp-doc-posts-missing-pdf-*.csv' );
+        if ( ! empty( $log_files ) ) {
+            foreach ( $log_files as $file ) {
+                @unlink( $file );
+            }
+            WP_CLI::log( 'Deleted all DLP Document missing PDF log CSV files.' );
+        } else {
+            WP_CLI::log( 'No log CSV files found to delete.' );
+        }
+    }
+    WP_CLI::add_command( 'dlp-document-missing-pdf-delete-logs', 'delete_dlp_document_missing_pdf_log_files' );
 }
