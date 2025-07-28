@@ -325,14 +325,20 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          * @return void
          */
         private function gather_duplicate_posts_data( $duplicate_post, $matching_post_title_id ): void {
+            $duplicate_file = get_attached_file( $duplicate_post->ID );
+            $duplicate_file_exists = is_file( $duplicate_file );
+            $duplicate_file_size = $duplicate_file_exists ? filesize( $duplicate_file ) : 0;
+
+
             $this->duplicate_posts_to_log[] = array(
-                'original_post_id'       => $matching_post_title_id,
-                'original_post_title'    => $this->unique_post_titles[$matching_post_title_id],
-                'original_pdf_url'       => get_attached_file( $matching_post_title_id ),
-                'duplicate_post_id'      => $duplicate_post->ID,
-                'duplicate_post_title'   => $duplicate_post->post_title,
-                'duplicate_pdf_url'      => $duplicate_post->guid,
-                'duplicate_pdf_filesize' => filesize( get_attached_file( $duplicate_post->ID ) ),
+                'original_post_id'          => $matching_post_title_id,
+                'original_post_title'       => $this->unique_post_titles[$matching_post_title_id],
+                'original_pdf_url'          => get_attached_file( $matching_post_title_id ),
+                'duplicate_post_id'         => $duplicate_post->ID,
+                'duplicate_post_title'      => $duplicate_post->post_title,
+                'duplicate_pdf_url'         => $duplicate_file,
+                'duplicate_pdf_file_exists' => $duplicate_file_exists,
+                'duplicate_pdf_filesize'    => $duplicate_file_size
             );
         }
 
@@ -370,6 +376,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                         'duplicate_post_id',
                         'duplicate_post_title',
                         'duplicate_pdf_url',
+                        'duplicate_pdf_file_exists',
                         'duplicate_pdf_filesize',
                     ),
                 );
