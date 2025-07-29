@@ -340,16 +340,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 $matching_post_pdf_meta_key = '_dlp_attached_file_id';
             }
 
-            $matching_attached_pdf = get_post_meta( $matching_post_title_id, $matching_post_pdf_meta_key, true );
-            // If the matching attached PDF is an array, use the first element and check for confirmation
-            if( is_array( $matching_attached_pdf ) ) {
-                if ( ! empty( $matching_attached_pdf ) ) {
-                    $matching_attached_pdf = (string) $matching_attached_pdf[0];
-                    WP_CLI::confirm( "The post meta for the PDF for post #$matching_post_title_id is an array. Using the first element: {$matching_attached_pdf}. Continue?", 'yes' );
-                } else {
-                    $matching_attached_pdf = '';
-                    WP_CLI::confirm( "The post meta for the PDF for post #$matching_post_title_id is an empty array. Using an empty string. Continue", 'yes' );
-                }
+            $matching_attached_pdf = '';
+            if ( ! empty ( $matching_post_pdf_meta_key ) ) {
+                $matching_attached_pdf = get_post_meta( $matching_post_title_id, $matching_post_pdf_meta_key, true );
             }
             $duplicate_attached_pdf = $attached_pdf_meta['pdf_file'];
 
@@ -381,15 +374,17 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 if ( ! $this->skip_confirmations ) {
                     WP_CLI::confirm( 'Do you want to delete the duplicate DLP Document post?', 'yes' );
                 }
-                $this->gather_duplicate_posts_data(
+                $is_duplicate_logged = $this->gather_duplicate_posts_data(
                     $duplicate_post,
                     $attached_pdf_meta,
                     $matching_post_title_id,
                     $matching_post_pdf_link_type,
                     $matching_attached_pdf
                 );
-                // To-do: Prevent the post from being deleted before the details of the duplicate post are logged
-                wp_delete_post( $duplicate_post->ID, true );
+
+                if ( $is_duplicate_logged ) {
+                    wp_delete_post( $duplicate_post->ID, true );
+                }
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
                 return;
             }
@@ -505,7 +500,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
          *
          * @param object $post The post object that is a duplicate.
          * @param int|string $matching_post_title_id The IDs of posts with the same title.
-         * @return void
+         * @return bool True if the data was gathered successfully, false otherwise.
          */
         private function gather_duplicate_posts_data(
             object $duplicate_post,
@@ -513,7 +508,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             int|string $matching_post_title_id,
             string $matching_post_pdf_link_type,
             string $matching_attached_pdf
-        ): void {
+        ): bool {
+            if ( empty( $matching_attached_pdf ) ) {
+                return false; // If the matching attached PDF is empty, we cannot log the duplicate post
+            }
+
             $this->stash_of_duplicate_dlp_doc_posts[] = array(
                 'original_post_id'           => $matching_post_title_id,
                 'original_post_title'        => $this->unique_post_titles[$matching_post_title_id],
@@ -524,6 +523,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 'duplicate_post_link_type'   => $attached_pdf_meta['link_type'],
                 'duplicate_dlp_doc_pdf'      => $attached_pdf_meta['pdf_file'],
             );
+            return true;
         }
 
         /**
