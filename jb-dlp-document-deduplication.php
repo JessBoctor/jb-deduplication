@@ -272,7 +272,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     SELECT * FROM {$wpdb->posts}
                     WHERE post_type = %s
                       AND ID > %d
-                    ORDER BY ID ASC
+                    ORDER BY ID DESC
                     LIMIT %d
                     ",
                     'dlp_document',
@@ -281,9 +281,10 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 )
             );
 
-            // Set the last_post_id property to the last post ID in the results, if any
+            // Set the last_post_id property to the first post ID in the results
+            // The posts are ordered by ID DESC, so the first post is the highest post ID
             if ( ! empty( $results ) ) {
-                $last_post = end( $results );
+                $last_post = $results[0];
                 $this->last_post_id = $last_post->ID;
             }
 
