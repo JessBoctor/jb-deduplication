@@ -403,6 +403,8 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 );
 
                 if ( $is_duplicate_logged ) {
+                    $dlp_doc_taxonomies = get_object_taxonomies( 'dlp_document' );
+                    wp_delete_object_term_relationships( $duplicate_post->ID, $dlp_doc_taxonomies );
                     wp_delete_post( $duplicate_post->ID, true );
                 }
                 WP_CLI::log( "Deleted duplicate post ID {$duplicate_post->ID}." );
