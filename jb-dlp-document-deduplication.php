@@ -347,7 +347,6 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         private function handle_duplicate_post( object $duplicate_post, array $attached_pdf_meta, int|string $matching_post_title_id ): void {
             $this->total_duplicate_posts++;
             // Determine if the PDF is attached via a post or URL
-            // To-Do: Determin is the attached PDF is valid
             $matching_post_pdf_link_type = get_post_meta( $matching_post_title_id, '_dlp_document_link_type', true ) ?? null;
 
             // Set the meta key based on the link type
