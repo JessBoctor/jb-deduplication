@@ -5,7 +5,7 @@
  * Requires WP-CLI to be installed and activated.
  *
  * Usage:
- *   wp pdf-media deduplicate [--dry-run] [--start-post-id=<id>]
+ *   wp pdf-media-dedup [--dry-run] [--start-post-id=<id>]
  *
  * Examples:
  *   wp pdf-media-dedup --dry-run
