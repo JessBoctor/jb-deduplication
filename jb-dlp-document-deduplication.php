@@ -46,9 +46,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         /**
          * Minimum post ID to start processing from.
          *
-         * @var int
+         * @var int|null
          */
-        private $start_post_id = 1;
+        private $start_post_id = null;
 
         /**
          * Holds the last post ID returned in the batch.
@@ -253,8 +253,28 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 return; // If a saved start post ID exists, use it.
             }
 
-            // If no start post ID is provided or saved, use default of 1
-            WP_CLI::log( 'No saved start post ID found or provided. Starting from post ID 1.' );
+            // If no start post ID is provided or saved, get the most recent DLP_Document post ID
+            // We need the highest post ID, since we are processing posts in descending order
+            if ( null === $this->start_post_id ) {
+                global $wpdb;
+                $this->start_post_id = $wpdb->get_var(
+                    $wpdb->prepare(
+                        "
+                        SELECT MAX(ID) FROM {$wpdb->posts}
+                        WHERE post_type = %s
+                        ",
+                        'dlp_document'
+                    )
+                );
+                WP_CLI::log( "Starting from highest DLP Document post ID: {$this->start_post_id}" );
+                return;
+            }
+
+            // If no start post ID is provided or saved, get the most recent DLP_Document post ID
+            // We need the highest post ID, since we are processing posts in descending order
+            if ( null === $this->start_post_id ) {
+                WP_CLI::error( "A start post ID was not found for the DLP Document post type. Quitting deduplication run." );
+            }
         }
 
         /**
@@ -271,7 +291,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     "
                     SELECT * FROM {$wpdb->posts}
                     WHERE post_type = %s
-                      AND ID > %d
+                      AND ID < %d
                     ORDER BY ID DESC
                     LIMIT %d
                     ",
@@ -284,7 +304,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
             // Set the last_post_id property to the first post ID in the results
             // The posts are ordered by ID DESC, so the first post is the highest post ID
             if ( ! empty( $results ) ) {
-                $last_post = $results[0];
+                $last_post = end( $results );
                 $this->last_post_id = $last_post->ID;
             }
 
