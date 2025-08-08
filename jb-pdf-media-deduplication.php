@@ -113,7 +113,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
             WP_CLI::log( "Batch size set to: {$this->batch_size}" );
 
             // Fetch the past unique post titles from options
-            $saved_unique_post_titles = get_option( 'one-time-script-pdf-deduplication-unique-post-titles', array() );
+            $saved_unique_post_titles = get_option( 'pdf-deduplication-unique-post-titles', array() );
             if ( is_array( $saved_unique_post_titles ) ) {
                 $this->unique_post_titles = $saved_unique_post_titles;
                 WP_CLI::log( 'Loaded unique post records from options.' );
@@ -223,7 +223,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
                 return; // If a start post ID is provided, it should always take precedence.
             }
 
-            $saved_start_post_id = get_option( 'one-time-script-pdf-deduplication-start-post-id' );
+            $saved_start_post_id = get_option( 'pdf-deduplication-start-post-id' );
             if ( $saved_start_post_id ) {
                 $this->start_post_id = intval( $saved_start_post_id );
                 WP_CLI::log( "Resuming from saved post ID: {$this->start_post_id}" );
@@ -278,7 +278,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          */
         private function save_last_post_id_to_options(): void {
             if ( ! is_null( $this->last_post_id ) ) {
-                update_option( 'one-time-script-pdf-deduplication-start-post-id', $this->last_post_id );
+                update_option( 'pdf-deduplication-start-post-id', $this->last_post_id );
             }
         }
 
@@ -291,7 +291,7 @@ if ( ! class_exists( 'PDF_Media_Deduplication_Command' ) ) {
          */
         private function save_unique_post_titles_to_options(): void {
             if ( ! empty( $this->unique_post_titles ) ) {
-                update_option( 'one-time-script-pdf-deduplication-unique-post-titles', $this->unique_post_titles );
+                update_option( 'pdf-deduplication-unique-post-titles', $this->unique_post_titles );
             }
         }
 
@@ -424,8 +424,8 @@ if ( class_exists( 'PDF_Media_Deduplication_Command' ) ) {
      * @return void
      */
     function clear_pdf_media_deduplication_options(): void {
-        delete_option( 'one-time-script-pdf-deduplication-start-post-id' );
-        delete_option( 'one-time-script-pdf-deduplication-unique-post-titles' );
+        delete_option( 'pdf-deduplication-start-post-id' );
+        delete_option( 'pdf-deduplication-unique-post-titles' );
         WP_CLI::log( 'Cleared PDF media deduplication options.' );
     }
     WP_CLI::add_command( 'pdf-media-dedup-clear-options', 'clear_pdf_media_deduplication_options' );
