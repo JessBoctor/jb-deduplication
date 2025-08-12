@@ -431,11 +431,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     // If the postmeta does not exist, the PDF file is missing
                     if ( null === $pdf_file_path ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
+                        return $attached_pdf_meta;
                     }
 
                     // If the postmeta exists, check that the file exists
-                    if ( ($pdf_file_path && ! file_exists( $pdf_file_path ) ) || null === $pdf_file_path ) {
+                    if ( ( $pdf_file_path && ! file_exists( $pdf_file_path ) ) ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, $pdf_file_path );
+                        return $attached_pdf_meta;
                     }
 
                     $attached_pdf_meta['link_type'] = $pdf_link_type;
@@ -446,11 +448,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                     // If the postmeta does not exist, we assume the PDF file is missing
                     if ( null === $pdf_post_id ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, null );
+                        return $attached_pdf_meta;
                     }
 
                     // If the postmeta contains a document post ID, check that the document post exists
-                    if ( ( $pdf_post_id && ! get_post_status( $pdf_post_id ) ) || null === $pdf_post_id ) {
+                    if ( ( $pdf_post_id && ! get_post_status( $pdf_post_id ) ) ) {
                         $this->handle_missing_pdf_file( $dlp_document_post, $pdf_link_type, $pdf_post_id );
+                        return $attached_pdf_meta;
                     }
 
                     $attached_pdf_meta['link_type'] = $pdf_link_type;
