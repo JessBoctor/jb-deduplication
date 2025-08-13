@@ -562,7 +562,7 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         private function gather_missing_pdf_posts_data(
             object $dlp_doc_post,
             null|string $pdf_link_type = null,
-            null|string $missing_pdf_id_or_url
+            null|string $missing_pdf_id_or_url = null
         ): void {
             $this->stash_of_missing_pdf_posts[] = array(
                 'dlp_document_post_id'      => $dlp_doc_post->ID,
