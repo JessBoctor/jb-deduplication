@@ -30,6 +30,13 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
         private $skip_confirmations = false;
 
         /**
+         * Allow skipping checking for missing PDFs.
+         *
+         * @var bool
+         */
+        private $skip_missing_pdfs = false;
+
+        /**
          * Whether to run in test mode (dry run).
          *
          * @var bool
@@ -111,10 +118,16 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 WP_CLI::log( 'Running in live mode. Changes will be applied.' );
             }
 
-            // Determine if we are running in dry run mode
+            // Determine if we are skipping confirmations
             $this->skip_confirmations = isset( $assoc_args['skip-confirmations'] );
             if ( $this->skip_confirmations ) {
                 WP_CLI::log( 'Cofirmations will be skipped.' );
+            }
+
+            // Determine if we are skipping checks for missing PDFs
+            $this->skip_missing_pdfs = isset( $assoc_args['skip-missing-pdfs'] );
+            if ( $this->skip_missing_pdfs ) {
+                WP_CLI::log( 'Checks for missing PDFs will be skipped.' );
             }
 
             // Determine the starting post ID from CLI args or saved option
@@ -169,9 +182,11 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
                 WP_CLI::log( "Checking post ID {$post->ID} with title '{$post_title}' for duplicates." );
 
                 // Confirm if the post has a valid PDF file attached to it
-                $attached_pdf_meta = $this->determine_if_pdf_exists( $post );
-                if ( empty( $attached_pdf_meta ) ) {
-                    continue;
+                if ( ! $this->skip_missing_pdfs ) {
+                    $attached_pdf_meta = $this->determine_if_pdf_exists( $post );
+                    if ( empty( $attached_pdf_meta ) ) {
+                        continue;
+                    }
                 }
 
                 // Check if the post title is already in the unique titles array
@@ -225,7 +240,9 @@ if ( ! class_exists( 'DLP_Document_Deduplication_Command' ) ) {
 
             // Handle logging the results
             $this->log_duplicate_post_results();
-            $this->log_missing_pdf_results();
+            if ( ! $this->skip_missing_pdfs )  {
+                $this->log_missing_pdf_results();
+            }
 
             // Log the number of unique post titles found
             WP_CLI::log( 'Unique DLP Document posts found: ' . count( $this->unique_post_titles ) );
